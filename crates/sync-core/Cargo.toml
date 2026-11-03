@@ -17,3 +17,6 @@ rusqlite = { version = "0.41", features = ["bundled"] }
 zstd = "0.14"
 tempfile = "3"
 fs2 = "0.4"
+
+[target.'cfg(windows)'.dev-dependencies]
+windows-sys = { version = "=0.61.2", features = ["Win32_Foundation", "Win32_Storage_FileSystem"] }
