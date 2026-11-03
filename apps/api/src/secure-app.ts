@@ -6,6 +6,7 @@ import type { ServerTLS } from './tls.ts';
 import { Security } from './security/service.ts';
 import { securityRoutes } from './security/routes.ts';
 import { BlobStorage } from './sync/storage.ts';
+import { publicationRoutes } from './sync/publication.ts';
 import { syncRoutes } from './sync/routes.ts';
 import { ApiError } from './security/primitives.ts';
 export type SecureOptions = {
@@ -54,6 +55,11 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
       DEVICE_REVOKED: [401, 'DEVICE_REVOKED'],
       ENROLLMENT_CLOSED: [409, 'ENROLLMENT_CLOSED'],
       REFRESH_MOVED: [409, 'REFRESH_MOVED'],
+      HEAD_MOVED: [409, 'HEAD_MOVED'],
+      BLOBS_MISSING: [409, 'BLOBS_MISSING'],
+      SESSION_COMMITTED: [409, 'SESSION_COMMITTED'],
+      ACK_REGRESSION: [409, 'ACK_REGRESSION'],
+      ALREADY_COMMITTED: [409, 'ALREADY_COMMITTED'],
       SESSION_LIMIT: [429, 'SESSION_LIMIT'],
       QUOTA_EXCEEDED: [413, 'QUOTA_EXCEEDED'],
       TRANSFER_CLOSED: [409, 'TRANSFER_CLOSED'],
@@ -136,6 +142,7 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
     const storage = new BlobStorage(options.blobDirectory);
     await storage.initialize();
     syncRoutes(app, security, storage);
+    publicationRoutes(app, security, storage);
   }
   return { app, security };
 }

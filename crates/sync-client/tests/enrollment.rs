@@ -303,3 +303,86 @@ fn native_streaming_transfer_resumes_and_reuses_verified_content() {
             .is_err()
     );
 }
+#[cfg(unix)]
+#[test]
+fn three_native_devices_publish_immutable_heads_with_one_cas_winner() {
+    use attuner_sync_client::BlobIdentity;
+    use attuner_sync_core::{Control, Manifest, ManifestFile};
+    use std::io::Cursor;
+    let mut fixture = Fixture::with_blobs(true);
+    let profile = fixture.profile_id.clone();
+    let mut clients = Vec::new();
+    for name in ["Synthetic North", "Synthetic West", "Synthetic East"] {
+        let mut client =
+            DeviceClient::open(fixture.connection(), Arc::new(Memory::default())).unwrap();
+        let enrollment = client.begin_enrollment(name, "macos", "0.1.0").unwrap();
+        let approval =
+            fixture.command(json!({"kind":"approve","enrollmentId":enrollment.enrollment_id}));
+        client
+            .accept_callback(approval["redirectUri"].as_str().unwrap())
+            .unwrap();
+        clients.push(client);
+    }
+    let policy = clients[0].fetch_head(&profile).unwrap();
+    assert_eq!(policy.head.revision, 0);
+    let mut candidates = Vec::new();
+    for (index, client) in clients.iter_mut().take(2).enumerate() {
+        let bytes = format!("synthetic concurrent content {index}").into_bytes();
+        let hash = blake3::hash(&bytes).to_hex().to_string();
+        let manifest = Manifest {
+            protocol_version: 1,
+            profile_id: profile.clone(),
+            policy_version: 1,
+            files: vec![ManifestFile {
+                root: "account".into(),
+                path: "Concurrent.lua".into(),
+                hash: hash.clone(),
+                size: bytes.len() as u64,
+                group: format!(
+                    "account:{}",
+                    &blake3::hash(b"Concurrent.lua").to_hex()[..24]
+                ),
+            }],
+        };
+        let session = client
+            .stage_snapshot(&manifest, &policy, None, &uuid::Uuid::new_v4().to_string())
+            .unwrap();
+        client
+            .upload_blob(
+                BlobIdentity {
+                    profile_id: &profile,
+                    hash: &hash,
+                    size: bytes.len() as u64,
+                },
+                &session.session_id,
+                &mut Cursor::new(bytes),
+                &Control::fixture(),
+                |_| {},
+            )
+            .unwrap();
+        candidates.push((manifest, session));
+    }
+    let mut observer = clients.pop().unwrap();
+    let handles: Vec<_> = clients
+        .into_iter()
+        .zip(candidates)
+        .map(|(mut client, (manifest, session))| {
+            let expected = policy.head.clone();
+            std::thread::spawn(move || client.publish_reviewed(&manifest, &expected, &session))
+        })
+        .collect();
+    let results: Vec<_> = handles.into_iter().map(|h| h.join().unwrap()).collect();
+    assert_eq!(results.iter().filter(|r| r.is_ok()).count(), 1);
+    assert_eq!(
+        results
+            .iter()
+            .filter(|r| matches!(r, Err(Error::HeadMoved)))
+            .count(),
+        1
+    );
+    let policy = observer.fetch_head(&profile).unwrap();
+    assert_eq!(policy.head.revision, 1);
+    let snapshot = observer.fetch_snapshot(&profile, &policy).unwrap().unwrap();
+    assert_eq!(snapshot.head(), policy.head);
+    observer.acknowledge(&profile, &policy.head).unwrap();
+}

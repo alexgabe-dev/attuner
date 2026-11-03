@@ -305,7 +305,7 @@ export class Security {
   deviceGuard(device: Device, profileId?: string, write = false): Statement[] {
     const statements: Statement[] = [
       {
-        sql: 'SELECT 1 FROM device_credentials c JOIN devices d ON d.id=c.device_id JOIN device_owners o ON o.device_id=d.id JOIN user_security u ON u.user_id=o.user_id WHERE c.id=? AND c.device_id=? AND c.revoked_at IS NULL AND c.expires_at>? AND d.revoked_at IS NULL AND u.disabled_at IS NULL',
+        sql: 'SELECT 1 FROM device_credentials c JOIN devices d ON d.id=c.device_id JOIN device_owners o ON o.device_id=d.id JOIN user_security u ON u.user_id=o.user_id WHERE c.id=? AND c.device_id=? AND c.revoked_at IS NULL AND c.expires_at>max(?,unixepoch()) AND d.revoked_at IS NULL AND u.disabled_at IS NULL',
         params: [device.credentialId, device.id, this.now()],
         expect: 1,
         code: 'DEVICE_REVOKED',
@@ -322,7 +322,7 @@ export class Security {
   }
   userGuard(user: User): Statement {
     return {
-      sql: 'SELECT 1 FROM web_sessions s JOIN web_session_security ss ON ss.token_hash=s.token_hash JOIN user_security u ON u.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>? AND u.disabled_at IS NULL AND u.epoch=ss.epoch',
+      sql: 'SELECT 1 FROM web_sessions s JOIN web_session_security ss ON ss.token_hash=s.token_hash JOIN user_security u ON u.user_id=s.user_id WHERE s.token_hash=? AND s.expires_at>max(?,unixepoch()) AND u.disabled_at IS NULL AND u.epoch=ss.epoch',
       params: [user.tokenHash, this.now()],
       expect: 1,
       code: 'AUTH_REQUIRED',

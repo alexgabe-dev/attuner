@@ -1,10 +1,12 @@
 //! HTTPS transport and device enrollment. Filesystem safety remains in sync-core.
 mod credential;
 mod device;
+mod publication;
 mod transfer;
 mod transport;
 pub use credential::{CredentialStore, OsCredentialStore};
 pub use device::{DeviceClient, DeviceStatus, Enrollment};
+pub use publication::{CandidateSession, ProfileHead, RemoteHead, RemoteSnapshot};
 pub use transfer::{BlobIdentity, TransferProgress};
 pub use transport::{PublicServer, ServerConnection};
 #[derive(Debug, thiserror::Error)]

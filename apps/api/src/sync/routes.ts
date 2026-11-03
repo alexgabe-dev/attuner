@@ -86,7 +86,7 @@ export function syncRoutes(app: FastifyInstance, security: Security, storage: Bl
   }
   app.post(
     prefix + '/sessions',
-    { ...authenticated, bodyLimit: LIMITS.manifestBytes },
+    { ...authenticated, bodyLimit: LIMITS.manifestBytes + 65536 },
     async (request) => {
       const d = request.syncDevice!,
         { profileId } = params(request),

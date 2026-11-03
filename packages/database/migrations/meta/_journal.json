@@ -43,6 +43,13 @@
       "when": 1793707468933,
       "tag": "0005_enrollment_delivery",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793743594916,
+      "tag": "0006_sealed_sessions",
+      "breakpoints": true
     }
   ]
 }

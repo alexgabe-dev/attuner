@@ -49,3 +49,11 @@ Hosted run 41725077662 passed Linux and Windows Server 2022, including Windows C
 - Formatting, lint/typechecks, package builds and workspace Clippy pass. No migration change was required; M1's transfer ledger is used. Publication/CAS remains disabled until M4.
 - Central blob server explicitly targets Unix. Test-only Windows enrollment server does not enable blob storage; hosted Windows credential/protocol evidence is not Unix durability evidence.
 - Remaining operational limits: no automatic orphan GC, scratch reconciliation or total multi-profile storage quota yet. Orphans are never verified by metadata alone, and free-space reserve checks block further writes. These are production deployment gates. See `docs/architecture/phase-3-api.md`.
+
+## M4 — immutable publication and CAS
+
+- Implemented exact-head CAS publication, immutable revisions/seals, deterministic added/modified/deleted records, atomic audit and session-result recovery. Migration 0006 protects staged identity, committed state and receipts.
+- Added current head, snapshot manifests/history, audit history and non-regressing device acknowledgements. Browser reads require profile membership; device reads/writes intersect current grants. Backend operations never apply local files.
+- Typed Rust publication client validates head envelopes, snapshot identity, complete canonical digest, namespace, policy/roots and expected publication revision. No remote path reaches filesystem operations.
+- Verification: 67 TypeScript tests and 45 Rust tests passed; formatting/lint/typechecks/builds/Clippy passed. Three actual Rust HTTPS clients independently enroll: two race from one head, one wins, one gets HEAD_MOVED, and the third verifies and acknowledges the immutable winner. Audit-failure injection rolls snapshot/seal/head/result back together with no revision hole. Existing local crash/recovery matrix still passes.
+- Windows-native NTFS/reparse/sharing probes were committed early and submitted to hosted CI; Windows application remains gated pending results and durability qualification.

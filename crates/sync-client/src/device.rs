@@ -245,7 +245,7 @@ impl DeviceClient {
             let etag = header("ETag");
             let size = header("X-Blob-Size").and_then(|v| v.parse().ok());
             let offset = header("X-Blob-Offset").and_then(|v| v.parse().ok());
-            let bytes = Zeroizing::new(limited(response, 16 * 1024 * 1024)?);
+            let bytes = Zeroizing::new(limited(response, 16 * 1024 * 1024 + 65536)?);
             if !(200..300).contains(&status) {
                 let value: Value = serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)?;
                 if status == 401 && value["code"] == "use_dpop_nonce" && attempt == 0 {
