@@ -1,0 +1,62 @@
+name: attuner-preview
+services:
+  api:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    command: ['pnpm', '--filter', '@attuner/api', 'start']
+    environment:
+      ATTUNER_HOST: 0.0.0.0
+      ATTUNER_CONTAINER_BIND: '1'
+      ATTUNER_DATA_DIR: /app/.runtime
+    volumes:
+      - attuner-data:/app/.runtime
+    networks: [private]
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:4317/api/v1/health/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  web:
+    build:
+      context: ../..
+      dockerfile: infrastructure/docker/Dockerfile
+    command:
+      [
+        'pnpm',
+        '--filter',
+        '@attuner/web',
+        'exec',
+        'next',
+        'start',
+        '--hostname',
+        '0.0.0.0',
+        '--port',
+        '3000',
+      ]
+    environment:
+      NEXT_TELEMETRY_DISABLED: '1'
+    networks: [private]
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - '127.0.0.1:8080:8080'
+    volumes:
+      - ../nginx/development.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks: [private]
+networks:
+  private:
+    internal: true
+volumes:
+  attuner-data:

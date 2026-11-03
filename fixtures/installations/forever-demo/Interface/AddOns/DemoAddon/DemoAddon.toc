@@ -1,0 +1,4 @@
+## Interface: 0
+## Title: Attuner Demo Fixture
+## Version: 0.1.0
+## Notes: Inert fixture, not a supported game addon

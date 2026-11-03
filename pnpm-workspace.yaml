@@ -1,0 +1,13 @@
+packages:
+  - apps/*
+  - packages/*
+onlyBuiltDependencies:
+  - better-sqlite3
+  - esbuild
+  - sharp
+
+overrides:
+  '@esbuild-kit/core-utils>esbuild': 0.25.12
+  'eslint>minimatch': 11.0.1
+  '@eslint/config-array>minimatch': 11.0.1
+  '@typescript-eslint/typescript-estree>minimatch': 11.0.1

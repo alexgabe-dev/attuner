@@ -1,0 +1,20 @@
+[package]
+name = "attuner-sync-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+unicode-normalization = "0.1"
+unicode-casefold = "0.2"
+blake3.workspace = true
+thiserror = "2"
+tracing = "0.1"
+cap-std = "4"
+cap-fs-ext = "4"
+rusqlite = { version = "0.41", features = ["bundled"] }
+zstd = "0.14"
+tempfile = "3"
+fs2 = "0.4"

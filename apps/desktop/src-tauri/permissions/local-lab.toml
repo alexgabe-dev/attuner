@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-local-lab"
+description = "Create and inspect synthetic temporary workspaces only. No arbitrary paths, game discovery, apply or network commands."
+commands.allow = ["local_lab_status", "local_lab_create", "local_lab_scan", "local_lab_snapshot", "local_lab_verify", "local_lab_cancel"]

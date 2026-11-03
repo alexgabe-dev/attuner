@@ -1,0 +1,12 @@
+.git
+.tools
+node_modules
+**/node_modules
+**/.next
+**/dist
+target
+.runtime
+.env*
+artifacts
+playwright-report
+test-results

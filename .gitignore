@@ -1,0 +1,15 @@
+node_modules/
+.tools/
+.next/
+dist/
+target/
+.env
+.env.*
+!.env.example
+.runtime/
+playwright-report/
+test-results/
+.DS_Store
+*.tsbuildinfo
+
+apps/desktop/src-tauri/gen/

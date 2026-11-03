@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Metadata and narrowly scoped synthetic local lab commands. No arbitrary filesystem, shell, network or game access.",
+  "windows": ["main"],
+  "permissions": ["allow-app-info", "allow-local-lab"]
+}

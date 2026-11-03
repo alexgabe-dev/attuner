@@ -1,0 +1,12 @@
+# Recommended Phase 3: backend synchronization
+
+Phase 3 should connect synthetic local workspaces to a loopback development backend first. Real installation adapters, automatic background sync and deployment remain separate approval gates.
+
+1. **Protocol and authorization.** Keep existing v1 manifest/hash conformance. Specify scoped device identity, pairing, token revocation, profile ownership, request size limits and error contracts. Write contract tests shared by Rust and TypeScript before adding transport.
+2. **Verified blob service.** Stream content-addressed objects with bounded uploads/downloads, checksums, deduplication and explicit compressed/uncompressed limits. Verify original bytes server-side before accepting a manifest reference. Establish quotas, retention and restore behavior before enabling deletion/GC.
+3. **Revision commits.** Add immutable server revisions with compare-and-swap parent revisions, idempotency keys and transactional manifest/blob references. Concurrent clients must receive a conflict, never silently replace the head. Do not trust client paths or claimed object hashes.
+4. **Explicit synchronization coordinator.** Fetch a remote manifest, compare baseline/local/remote in the Rust core, present conflicts for review, and apply only a user-approved complete revision. Do not merge Lua. Acknowledgement of a remote revision follows local durable commit; interrupted downloads must not create complete manifests or deletions.
+5. **Recovery across transport failure.** Test duplicate requests, lost acknowledgements, revoked devices, quota exhaustion, corrupt blobs, interrupted downloads and concurrent revision races. Keep server errors distinct from local recovery-required states. Retain local verified preimages before every apply.
+6. **UI and operations.** Add separately labeled connected development mode with real revision/error/progress state, bounded event delivery, accessible conflict review and observable correlation IDs. Preserve the local lab and remote demo. Establish server migration/backup/restore tests, TLS and secret-handling requirements before any public deployment.
+
+Acceptance requires two synthetic clients converging through explicit operations, byte-exact recovery after failures, unauthorized cross-profile access rejection, no baseline advance on incomplete application, passing shared contracts and a reviewed threat model. Follow with Windows durable I/O qualification and a real game-state interlock design before proposing real installation integration.

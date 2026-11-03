@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-app-info"
+description = "Read version and fixture-demo mode only."
+commands.allow = ["get_app_info"]

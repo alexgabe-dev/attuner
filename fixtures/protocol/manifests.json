@@ -1,0 +1,369 @@
+[
+  {
+    "name": "valid minimal",
+    "valid": true,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "valid empty coverage",
+    "valid": true,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": []
+    }
+  },
+  {
+    "name": "traversal",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "../Secrets",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "absolute",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "/etc/passwd",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "drive",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "C:/WoW/file",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "backslash",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "WTF\\file",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "reserved",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "NUL.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "trailing dot",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "file.",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "empty segment",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "WTF//file",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "non-normalized",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "Café.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "case collision",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        },
+        {
+          "root": "account",
+          "path": "savedvariables/weakauras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "protocolVersion",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 2,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "unexpected",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ],
+      "unexpected": true
+    }
+  },
+  {
+    "name": "unsafe integer",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 9007199254740992,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "wildcard",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "a*.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "illegal delimiter",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "a|b.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "control",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "a.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "UTF8 length",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮🎮.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "file directory overlap",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        },
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua/nested",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  },
+  {
+    "name": "non RFC UUID",
+    "valid": false,
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-0111-0111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/WeakAuras.lua",
+          "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+          "size": 0,
+          "group": "WeakAuras"
+        }
+      ]
+    }
+  }
+]

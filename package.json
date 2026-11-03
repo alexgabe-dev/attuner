@@ -1,0 +1,43 @@
+{
+  "name": "attuner",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "pnpm@10.33.4",
+  "engines": {
+    "node": ">=24.22.2 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @attuner/web --filter @attuner/api dev",
+    "dev:web": "pnpm --filter @attuner/web dev",
+    "dev:desktop": "pnpm --filter @attuner/desktop tauri dev",
+    "dev:desktop:browser": "pnpm --filter @attuner/desktop dev",
+    "dev:api": "pnpm --filter @attuner/api dev",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "pnpm -r typecheck && tsc -p tsconfig.tools.json",
+    "test": "vitest run",
+    "db:migrate:test": "vitest run packages/database/src/database.test.ts",
+    "db:migrate": "pnpm --filter @attuner/database migrate",
+    "build": "pnpm -r build",
+    "test:e2e": "playwright test",
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.11.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.56.1",
+    "@types/node": "^24.10.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.0.0",
+    "globals": "^17.14.0",
+    "prettier": "^3.6.2",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.2",
+    "vitest": "^5.1.0"
+  }
+}

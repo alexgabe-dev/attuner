@@ -1,0 +1,14 @@
+pnpm-lock.yaml
+.tools
+node_modules
+.next
+dist
+target
+Cargo.lock
+artifacts
+**/migrations/meta
+
+**/next-env.d.ts
+**/src-tauri/gen/
+playwright-report/
+test-results/
