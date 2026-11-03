@@ -15,6 +15,13 @@
       "when": 1793662563919,
       "tag": "0001_immutable_snapshots",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793706419450,
+      "tag": "0002_secure_sync_foundation",
+      "breakpoints": true
     }
   ]
 }

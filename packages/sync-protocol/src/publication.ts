@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { blake3 } from 'hash-wasm';
-import namespace from '../../../fixtures/unicode/namespace-v1.json';
-import { manifestSchema, hashSchema, type Manifest, isPortablePath } from './manifest';
+import namespace from '../../../fixtures/unicode/namespace-v1.json' with { type: 'json' };
+import { manifestSchema, hashSchema, type Manifest, isPortablePath } from './manifest.ts';
 export const LIMITS = Object.freeze({
   fileBytes: 1073741824,
   treeBytes: 4294967296,

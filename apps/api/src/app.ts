@@ -1,8 +1,17 @@
 import Fastify from 'fastify';
 import { PROTOCOL_VERSION } from '@attuner/sync-protocol';
-import type { AttunerDatabase } from '@attuner/database';
-export function buildApp(database: AttunerDatabase) {
-  const app = Fastify({ logger: false, bodyLimit: 65536 });
+import { DatabaseWorker, type AttunerDatabase } from '@attuner/database';
+import type { ServerTLS } from './tls';
+export function buildApp(
+  database: AttunerDatabase | DatabaseWorker,
+  options: { tls?: ServerTLS } = {},
+) {
+  const app = Fastify({
+    logger: false,
+    bodyLimit: 65536,
+    requestTimeout: 120000,
+    ...(options.tls ? { https: options.tls } : {}),
+  });
   app.addHook('onSend', async (_request, reply, payload) => {
     reply.header('X-Content-Type-Options', 'nosniff');
     reply.header('Cache-Control', 'no-store');
@@ -11,7 +20,8 @@ export function buildApp(database: AttunerDatabase) {
   app.get('/api/v1/health/live', async () => ({ status: 'ok', service: 'attuner-api' }));
   app.get('/api/v1/health/ready', async (_request, reply) => {
     try {
-      database.sqlite.prepare('SELECT 1').get();
+      if (database instanceof DatabaseWorker) await database.query('SELECT 1');
+      else database.sqlite.prepare('SELECT 1').get();
       return { status: 'ready', database: 'ready', sqliteVersion: database.version };
     } catch {
       reply.code(503);

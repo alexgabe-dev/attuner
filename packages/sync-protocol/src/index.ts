@@ -1,2 +1,2 @@
-export * from './manifest';
-export * from './publication';
+export * from './manifest.ts';
+export * from './publication.ts';

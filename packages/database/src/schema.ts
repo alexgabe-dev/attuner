@@ -312,3 +312,153 @@ export const sessionBlobs = sqliteTable(
   },
   (t) => [primaryKey({ columns: [t.sessionId, t.hash] })],
 );
+
+// Phase 3 ownership and publication records. Existing immutable rows are retained.
+export const profileMembers = sqliteTable(
+  'profile_members',
+  {
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => webUsers.id),
+    role: text('role', { enum: ['owner', 'writer', 'reader'] }).notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.profileId, t.userId] }),
+    check('member_role', sql`${t.role} IN ('owner','writer','reader')`),
+  ],
+);
+export const deviceOwners = sqliteTable('device_owners', {
+  deviceId: text('device_id')
+    .primaryKey()
+    .references(() => devices.id),
+  userId: text('user_id')
+    .notNull()
+    .references(() => webUsers.id),
+});
+export const profilePolicies = sqliteTable(
+  'profile_policies',
+  {
+    profileId: text('profile_id')
+      .primaryKey()
+      .references(() => profiles.id),
+    roots: text('roots', { mode: 'json' }).notNull(),
+    namespaceVersion: integer('namespace_version').notNull().default(1),
+    quotaBytes: integer('quota_bytes').notNull().default(10737418240),
+  },
+  (t) => [
+    check('namespace_v1', sql`${t.namespaceVersion}=1`),
+    check('positive_quota', sql`${t.quotaBytes}>0`),
+  ],
+);
+export const profileBlobs = sqliteTable(
+  'profile_blobs',
+  {
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id),
+    hash: text('hash')
+      .notNull()
+      .references(() => blobs.hash),
+    size: integer('size').notNull(),
+    state: text('state', { enum: ['verified', 'quarantined'] }).notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.profileId, t.hash] }),
+    check('profile_blob_size', sql`${t.size}>=0 AND ${t.size}<=1073741824`),
+    check('profile_blob_state', sql`${t.state} IN ('verified','quarantined')`),
+  ],
+);
+export const snapshotSeals = sqliteTable('snapshot_seals', {
+  snapshotId: text('snapshot_id')
+    .primaryKey()
+    .references(() => snapshots.id),
+  fileCount: integer('file_count').notNull(),
+  bytes: integer('bytes').notNull(),
+  namespaceVersion: integer('namespace_version').notNull().default(1),
+  createdAt: created(),
+});
+export const publicationDetails = sqliteTable('publication_details', {
+  sessionId: text('session_id')
+    .primaryKey()
+    .references(() => syncSessions.id),
+  expectedRevision: integer('expected_revision').notNull(),
+  expectedHash: text('expected_hash'),
+  manifestHash: text('manifest_hash').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  committedSnapshotId: text('committed_snapshot_id').references(() => snapshots.id),
+});
+export const uploadSessions = sqliteTable(
+  'upload_sessions',
+  {
+    id: id(),
+    sessionId: text('session_id')
+      .notNull()
+      .references(() => syncSessions.id),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id),
+    hash: text('hash').notNull(),
+    size: integer('size').notNull(),
+    state: text('state').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    uniqueIndex('session_upload_hash').on(t.sessionId, t.hash),
+    check('upload_size', sql`${t.size}>=0 AND ${t.size}<=1073741824`),
+    check('upload_hash', sql`length(${t.hash})=64 AND ${t.hash} NOT GLOB '*[^a-f0-9]*'`),
+    check('upload_state', sql`${t.state} IN ('open','verifying','verified','cancelled','failed')`),
+  ],
+);
+export const uploadChunks = sqliteTable(
+  'upload_chunks',
+  {
+    uploadId: text('upload_id')
+      .notNull()
+      .references(() => uploadSessions.id),
+    position: integer('position').notNull(),
+    size: integer('size').notNull(),
+    hash: text('hash').notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.uploadId, t.position] }),
+    check(
+      'chunk_bounds',
+      sql`${t.position}>=0 AND ${t.position}<256 AND ${t.size}>0 AND ${t.size}<=4194304`,
+    ),
+  ],
+);
+export const requestReceipts = sqliteTable(
+  'request_receipts',
+  {
+    principal: text('principal').notNull(),
+    scope: text('scope').notNull(),
+    key: text('key').notNull(),
+    payloadHash: text('payload_hash').notNull(),
+    result: text('result', { mode: 'json' }).notNull(),
+    createdAt: created(),
+  },
+  (t) => [primaryKey({ columns: [t.principal, t.scope, t.key] })],
+);
+export const auditDetails = sqliteTable('audit_details', {
+  eventId: integer('event_id')
+    .primaryKey()
+    .references(() => auditEvents.id),
+  actorKind: text('actor_kind').notNull(),
+  actorId: text('actor_id'),
+  requestId: text('request_id').notNull(),
+  jobId: text('job_id'),
+  outcome: text('outcome').notNull(),
+});
+export const serverSettings = sqliteTable('server_settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+});
