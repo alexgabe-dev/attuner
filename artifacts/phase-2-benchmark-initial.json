@@ -1,0 +1,13 @@
+{
+  "applyOneChangeMs": 4616.586916,
+  "bytes": 175177882,
+  "files": 10004,
+  "hashReadBufferBytes": 65536,
+  "scanHashPasses": 2,
+  "scanLogicalMiBPerSecond": 144.39866825381282,
+  "scanMs": 1156.9542079999999,
+  "scope": "isolated synthetic temporary directory; warm filesystem cache",
+  "snapshotMs": 85159.764125,
+  "sqlite": "3.54.1",
+  "verifyMs": 542.936792
+}
