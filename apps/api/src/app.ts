@@ -1,13 +1,14 @@
 import Fastify from 'fastify';
-import { PROTOCOL_VERSION } from '@attuner/sync-protocol';
+import { PROTOCOL_VERSION, LIMITS, NAMESPACE_VERSION } from '@attuner/sync-protocol';
 import { DatabaseWorker, type AttunerDatabase } from '@attuner/database';
 import type { ServerTLS } from './tls';
 export function buildApp(
   database: AttunerDatabase | DatabaseWorker,
-  options: { tls?: ServerTLS } = {},
+  options: { tls?: ServerTLS; secure?: boolean; serverId?: string } = {},
 ) {
   const app = Fastify({
     logger: false,
+    allowErrorHandlerOverride: false,
     bodyLimit: 65536,
     requestTimeout: 120000,
     ...(options.tls ? { https: options.tls } : {}),
@@ -30,39 +31,41 @@ export function buildApp(
   });
   app.get('/api/v1/capabilities', async () => ({
     protocolVersion: PROTOCOL_VERSION,
-    phase: 1,
-    mode: 'foundation',
+    phase: options.secure ? 3 : 1,
+    mode: options.secure ? 'secure-synthetic' : 'foundation',
+    serverId: options.serverId,
+    namespaceVersion: NAMESPACE_VERSION,
+    limits: LIMITS,
     features: {
-      pairing: false,
+      pairing: !!options.secure,
       synchronization: false,
       restore: false,
       activityStreaming: false,
-      webAuthentication: false,
+      webAuthentication: !!options.secure,
     },
-    demoData: 'client-side fixtures only',
+    demoData: options.secure ? 'synthetic installations only' : 'client-side fixtures only',
   }));
   app.setNotFoundHandler((request, reply) => {
     const mutation = !['GET', 'HEAD', 'OPTIONS'].includes(request.method);
     reply.code(mutation ? 501 : 404).send({
       code: mutation ? 'PHASE_NOT_IMPLEMENTED' : 'NOT_FOUND',
-      message: mutation
-        ? 'Synchronization and authentication are not implemented in Phase 1.'
-        : 'Endpoint not found.',
+      message: mutation ? 'This operation is not available.' : 'Endpoint not found.',
       requestId: request.id,
       retryable: false,
     });
   });
-  app.setErrorHandler((error, request, reply) => {
-    const status =
-      error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number'
-        ? error.statusCode
-        : 500;
-    reply.code(status).send({
-      code: status < 500 ? 'INVALID_REQUEST' : 'INTERNAL_ERROR',
-      message: status < 500 ? 'Request could not be accepted.' : 'An internal error occurred.',
-      requestId: request.id,
-      retryable: false,
+  if (!options.secure)
+    app.setErrorHandler((error, request, reply) => {
+      const status =
+        error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number'
+          ? error.statusCode
+          : 500;
+      reply.code(status).send({
+        code: status < 500 ? 'INVALID_REQUEST' : 'INTERNAL_ERROR',
+        message: status < 500 ? 'Request could not be accepted.' : 'An internal error occurred.',
+        requestId: request.id,
+        retryable: false,
+      });
     });
-  });
   return app;
 }

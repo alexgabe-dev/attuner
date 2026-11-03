@@ -8,7 +8,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/apps/api/src/server.js",
     "typecheck": "tsc --noEmit",
-    "dev:fixture": "tsx watch src/fixture-server.ts"
+    "dev:fixture": "tsx watch src/fixture-server.ts",
+    "admin": "tsx src/admin.ts"
   },
   "dependencies": {
     "fastify": "5.12.8",

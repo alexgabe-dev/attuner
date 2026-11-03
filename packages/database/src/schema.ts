@@ -462,3 +462,126 @@ export const serverSettings = sqliteTable('server_settings', {
   key: text('key').primaryKey(),
   value: text('value').notNull(),
 });
+
+export const userSecurity = sqliteTable(
+  'user_security',
+  {
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => webUsers.id),
+    role: text('role').notNull(),
+    disabledAt: integer('disabled_at'),
+    epoch: integer('epoch').notNull().default(1),
+  },
+  (t) => [check('user_role', sql`${t.role} IN ('administrator','user')`)],
+);
+export const webSessionSecurity = sqliteTable('web_session_security', {
+  tokenHash: text('token_hash')
+    .primaryKey()
+    .references(() => webSessions.tokenHash),
+  csrfHash: text('csrf_hash').notNull(),
+  epoch: integer('epoch').notNull(),
+  authenticatedAt: integer('authenticated_at').notNull(),
+});
+export const deviceKeys = sqliteTable('device_keys', {
+  deviceId: text('device_id')
+    .primaryKey()
+    .references(() => devices.id),
+  thumbprint: text('thumbprint').notNull().unique(),
+  jwk: text('jwk', { mode: 'json' }).notNull(),
+  createdAt: created(),
+});
+export const enrollments = sqliteTable(
+  'enrollments',
+  {
+    id: id(),
+    thumbprint: text('thumbprint').notNull(),
+    jwk: text('jwk', { mode: 'json' }).notNull(),
+    challenge: text('challenge').notNull(),
+    clientState: text('client_state').notNull(),
+    deviceName: text('device_name').notNull(),
+    os: text('os').notNull(),
+    clientVersion: text('client_version').notNull(),
+    state: text('state').notNull(),
+    userId: text('user_id').references(() => webUsers.id),
+    profileIds: text('profile_ids', { mode: 'json' }),
+    codeHash: text('code_hash').unique(),
+    expiresAt: integer('expires_at').notNull(),
+    createdAt: created(),
+  },
+  (t) => [check('enrollment_state', sql`${t.state} IN ('pending','approved','denied','redeemed')`)],
+);
+export const credentialSecurity = sqliteTable(
+  'credential_security',
+  {
+    credentialId: text('credential_id')
+      .primaryKey()
+      .references(() => deviceCredentials.id),
+    kind: text('kind').notNull(),
+    thumbprint: text('thumbprint').notNull(),
+    familyId: text('family_id').notNull(),
+    familyExpiresAt: integer('family_expires_at').notNull(),
+    usedAt: integer('used_at'),
+  },
+  (t) => [
+    index('credential_family').on(t.familyId),
+    check('credential_kind', sql`${t.kind} IN ('access','refresh')`),
+  ],
+);
+export const tokenDeliveries = sqliteTable('token_deliveries', {
+  key: text('key').primaryKey(),
+  principal: text('principal').notNull(),
+  payloadHash: text('payload_hash').notNull(),
+  familyId: text('family_id').notNull(),
+  deviceId: text('device_id')
+    .notNull()
+    .references(() => devices.id),
+  ciphertext: text('ciphertext').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+  createdAt: created(),
+});
+export const proofNonces = sqliteTable(
+  'proof_nonces',
+  {
+    hash: text('hash').primaryKey(),
+    thumbprint: text('thumbprint').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+  },
+  (t) => [index('nonce_key').on(t.thumbprint)],
+);
+export const proofReplays = sqliteTable(
+  'proof_replays',
+  {
+    thumbprint: text('thumbprint').notNull(),
+    jti: text('jti').notNull(),
+    expiresAt: integer('expires_at').notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.thumbprint, t.jti] })],
+);
+export const deviceProfileScopes = sqliteTable(
+  'device_profile_scopes',
+  {
+    deviceId: text('device_id').notNull(),
+    profileId: text('profile_id').notNull(),
+    permission: text('permission').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.deviceId, t.profileId] }),
+    foreignKey({
+      columns: [t.deviceId, t.profileId],
+      foreignColumns: [deviceProfiles.deviceId, deviceProfiles.profileId],
+    }),
+    check('device_permission', sql`${t.permission} IN ('read','write')`),
+  ],
+);
+export const enrollmentDecisions = sqliteTable('enrollment_decisions', {
+  enrollmentId: text('enrollment_id')
+    .primaryKey()
+    .references(() => enrollments.id),
+  userId: text('user_id')
+    .notNull()
+    .references(() => webUsers.id),
+  payloadHash: text('payload_hash').notNull(),
+  ciphertext: text('ciphertext').notNull(),
+  expiresAt: integer('expires_at').notNull(),
+});

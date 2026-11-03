@@ -22,6 +22,27 @@
       "when": 1793706419450,
       "tag": "0002_secure_sync_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793707031384,
+      "tag": "0003_device_security",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793707128068,
+      "tag": "0004_device_profile_scopes",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793707468933,
+      "tag": "0005_enrollment_delivery",
+      "breakpoints": true
     }
   ]
 }

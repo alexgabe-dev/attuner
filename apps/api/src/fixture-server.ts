@@ -2,14 +2,17 @@
 import { mkdir, copyFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { DatabaseWorker } from '@attuner/database';
-import { buildApp } from './app.ts';
+import { createSecureApp, ephemeralDevelopmentDeliveryKey } from './secure-app.ts';
 import { tlsFixture } from './testing/tls-fixture.ts';
 const directory = resolve(process.env.ATTUNER_DATA_DIR ?? '../../.runtime');
 await mkdir(directory, { recursive: true, mode: 0o700 });
 const fixture = await tlsFixture();
-await copyFile(fixture.certPath, join(directory, 'development-ca.pem'));
+await copyFile(fixture.caPath, join(directory, 'development-ca.pem'));
 const database = await DatabaseWorker.open(join(directory, 'attuner.sqlite'));
-const app = buildApp(database, { tls: fixture.tls });
+const { app } = await createSecureApp(database, {
+  tls: fixture.tls,
+  deliveryKey: ephemeralDevelopmentDeliveryKey(),
+});
 app.addHook('onClose', async () => {
   await database.close();
   await fixture.close();
