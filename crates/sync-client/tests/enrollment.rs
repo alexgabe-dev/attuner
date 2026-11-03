@@ -56,14 +56,19 @@ struct Fixture {
     output: mpsc::Receiver<String>,
     origin: String,
     ca: String,
+    profile_id: String,
 }
 impl Fixture {
     fn start() -> Self {
+        Self::with_blobs(false)
+    }
+    fn with_blobs(blobs: bool) -> Self {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut child = Command::new("node")
             .arg(root.join("apps/api/src/testing/native-fixture.ts"))
             .current_dir(root)
             .env("ATTUNER_TEST_FIXTURE", "1")
+            .env("ATTUNER_TEST_BLOBS", if blobs { "1" } else { "0" })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -89,13 +94,16 @@ impl Fixture {
             output: rx,
             origin: String::new(),
             ca: String::new(),
+            profile_id: String::new(),
         };
         let ready = f.read();
         f.origin = ready["origin"]
             .as_str()
             .expect("public fixture origin")
             .into();
+        f.profile_id = ready["profileId"].as_str().unwrap().into();
         f.ca = ready["ca"].as_str().expect("public fixture CA").into();
+        assert!(uuid::Uuid::parse_str(&f.profile_id).is_ok());
         f
     }
     fn read(&mut self) -> Value {
@@ -197,4 +205,101 @@ fn native_crypto_tls_enrollment_and_secure_store_recovery() {
         client.request("GET", "/api/v1/profiles", None, None),
         Err(Error::Authentication)
     ));
+}
+#[cfg(unix)]
+#[test]
+fn native_streaming_transfer_resumes_and_reuses_verified_content() {
+    use attuner_sync_client::BlobIdentity;
+    use attuner_sync_core::{Control, Manifest, ManifestFile};
+    use std::io::Cursor;
+    let mut fixture = Fixture::with_blobs(true);
+    let mut client = DeviceClient::open(fixture.connection(), Arc::new(Memory::default())).unwrap();
+    let enrollment = client
+        .begin_enrollment("Native transfer", "macos", "0.1.0")
+        .unwrap();
+    let approval =
+        fixture.command(json!({"kind":"approve","enrollmentId":enrollment.enrollment_id}));
+    client
+        .accept_callback(approval["redirectUri"].as_str().unwrap())
+        .unwrap();
+    let profile = fixture.profile_id.clone();
+    let bytes = vec![0x57u8; 4 * 1024 * 1024 + 19];
+    let hash = blake3::hash(&bytes).to_hex().to_string();
+    let manifest = Manifest {
+        protocol_version: 1,
+        profile_id: profile.clone(),
+        policy_version: 1,
+        files: vec![ManifestFile {
+            root: "account".into(),
+            path: "Synthetic.lua".into(),
+            hash: hash.clone(),
+            size: bytes.len() as u64,
+            group: format!("account:{}", &blake3::hash(b"Synthetic.lua").to_hex()[..24]),
+        }],
+    };
+    let body = json!({"publicationVersion":1,"namespaceVersion":1,"expectedHead":{"snapshotId":null,"revision":0,"manifestHash":null},"baseSnapshotId":null,"coveredRoots":["account","addons"],"manifestHash":attuner_sync_core::remote::digest(&manifest).unwrap(),"manifest":manifest});
+    let session = client
+        .request(
+            "POST",
+            &format!("/api/v1/profiles/{profile}/sessions"),
+            Some(&body),
+            Some(&uuid::Uuid::new_v4().to_string()),
+        )
+        .unwrap();
+    let session = session["sessionId"].as_str().unwrap();
+    let blob = BlobIdentity {
+        profile_id: &profile,
+        hash: &hash,
+        size: bytes.len() as u64,
+    };
+    let control = Control::fixture();
+    let cancellation = control.cancellation.clone();
+    assert!(
+        client
+            .upload_blob(blob, session, &mut Cursor::new(&bytes), &control, |_| {
+                cancellation.cancel()
+            })
+            .is_err()
+    );
+    let mut reused = 0;
+    client
+        .upload_blob(
+            blob,
+            session,
+            &mut Cursor::new(&bytes),
+            &Control::fixture(),
+            |p| reused = p.reused_bytes,
+        )
+        .unwrap();
+    assert_eq!(reused, 4 * 1024 * 1024);
+    // A verified object is reused without even reading/recompressing the source.
+    client
+        .upload_blob(
+            blob,
+            session,
+            &mut std::io::empty(),
+            &Control::fixture(),
+            |p| assert_eq!(p.reused_bytes, bytes.len() as u64),
+        )
+        .unwrap();
+    let control = Control::fixture();
+    let cancellation = control.cancellation.clone();
+    let mut output = Cursor::new(Vec::new());
+    assert!(
+        client
+            .download_blob(blob, &mut output, 0, &control, |_| cancellation.cancel())
+            .is_err()
+    );
+    let offset = output.get_ref().len() as u64;
+    assert_eq!(offset, 4 * 1024 * 1024);
+    client
+        .download_blob(blob, &mut output, offset, &Control::fixture(), |_| {})
+        .unwrap();
+    assert!(output.get_ref() == &bytes);
+    let mut corrupt = Cursor::new(vec![0u8; offset as usize]);
+    assert!(
+        client
+            .download_blob(blob, &mut corrupt, offset, &Control::fixture(), |_| {})
+            .is_err()
+    );
 }

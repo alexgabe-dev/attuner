@@ -11,6 +11,7 @@ const tls = await loadTLS();
 const database = await DatabaseWorker.open(resolve(directory, 'attuner.sqlite'));
 const { app } = await createSecureApp(database, {
   tls,
+  blobDirectory: resolve(directory, 'blobs'),
   deliveryKey: deliveryKey(),
   publicOrigin: process.env.ATTUNER_PUBLIC_ORIGIN ?? `https://${config.host}:${config.port}`,
 });

@@ -1,10 +1,17 @@
 // Test-only private IPC controller. No network route or runtime flag enables auto-approval.
 import { createInterface } from 'node:readline';
 import { randomUUID } from 'node:crypto';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { secureHarness } from './secure-harness.ts';
 if (process.env.ATTUNER_TEST_FIXTURE !== '1')
   throw new Error('This fixture is only available to the synthetic integration harness.');
-const h = await secureHarness();
+const blobDirectory =
+  process.env.ATTUNER_TEST_BLOBS === '1'
+    ? await mkdtemp(join(tmpdir(), 'attuner-native-transfer-'))
+    : undefined;
+const h = await secureHarness(blobDirectory ? { blobDirectory } : {});
 const password = randomUUID() + randomUUID();
 await h.security.bootstrap('synthetic-owner', password);
 const session = await h.login('synthetic-owner', password);
@@ -56,3 +63,4 @@ for await (const line of lines) {
   } else process.stdout.write(JSON.stringify({ error: 'unknown-test-command' }) + '\n');
 }
 await h.close();
+if (blobDirectory) await rm(blobDirectory, { recursive: true, force: true });

@@ -84,6 +84,16 @@ fn now() -> Result<u64> {
         .map(|d| d.as_secs())
         .map_err(|_| Error::Protocol)
 }
+pub(crate) enum Body<'a> {
+    Json(&'a Value),
+    Bytes(&'a [u8]),
+}
+pub(crate) struct WireResponse {
+    pub bytes: Zeroizing<Vec<u8>>,
+    pub etag: Option<String>,
+    pub size: Option<u64>,
+    pub offset: Option<u64>,
+}
 impl DeviceClient {
     pub fn open(connection: ServerConnection, store: Arc<dyn CredentialStore>) -> Result<Self> {
         let account = blake3::hash(
@@ -172,6 +182,19 @@ impl DeviceClient {
         key: Option<&str>,
         authenticated: bool,
     ) -> Result<Value> {
+        let response =
+            self.send_raw(method, path, body.map(Body::Json), key, authenticated, None)?;
+        serde_json::from_slice(&response.bytes).map_err(|_| Error::Protocol)
+    }
+    pub(crate) fn send_raw(
+        &mut self,
+        method: &str,
+        path: &str,
+        body: Option<Body<'_>>,
+        key: Option<&str>,
+        authenticated: bool,
+        etag: Option<&str>,
+    ) -> Result<WireResponse> {
         if self.storage_failed.get() {
             return Err(Error::Credentials);
         }
@@ -194,38 +217,65 @@ impl DeviceClient {
                     sensitive(&format!("DPoP {}", self.credentials.access_token))?,
                 );
             }
-            if let Some(value) = body {
-                request = request.json(value);
+            if let Some(body) = &body {
+                request = match body {
+                    Body::Json(v) => request.json(v),
+                    Body::Bytes(v) => request
+                        .header("Content-Type", "application/octet-stream")
+                        .body(v.to_vec()),
+                };
             }
             if let Some(key) = key {
                 request = request.header("Idempotency-Key", key);
             }
+            if let Some(etag) = etag {
+                request = request.header("If-Match", etag);
+            }
             let response = request.send().map_err(|_| Error::Transport)?;
             let status = response.status().as_u16();
-            let nonce = response
-                .headers()
-                .get("DPoP-Nonce")
-                .and_then(|h| h.to_str().ok())
-                .filter(|v| v.len() <= 128)
-                .map(str::to_owned);
+            let header = |name: &str| {
+                response
+                    .headers()
+                    .get(name)
+                    .and_then(|h| h.to_str().ok())
+                    .filter(|v| v.len() <= 128)
+                    .map(str::to_owned)
+            };
+            let nonce = header("DPoP-Nonce");
+            let etag = header("ETag");
+            let size = header("X-Blob-Size").and_then(|v| v.parse().ok());
+            let offset = header("X-Blob-Offset").and_then(|v| v.parse().ok());
             let bytes = Zeroizing::new(limited(response, 16 * 1024 * 1024)?);
-            let value: Value = serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)?;
-            if status == 401 && value["code"] == "use_dpop_nonce" && attempt == 0 {
-                self.nonce = nonce.ok_or(Error::Protocol)?;
-                continue;
-            }
-            if status == 401 {
-                return Err(Error::Authentication);
-            }
-            if status == 409 && value["code"] == "HEAD_MOVED" {
-                return Err(Error::HeadMoved);
-            }
             if !(200..300).contains(&status) {
+                let value: Value = serde_json::from_slice(&bytes).map_err(|_| Error::Protocol)?;
+                if status == 401 && value["code"] == "use_dpop_nonce" && attempt == 0 {
+                    self.nonce = nonce.ok_or(Error::Protocol)?;
+                    continue;
+                }
+                if status == 401 {
+                    return Err(Error::Authentication);
+                }
+                if status == 409 && value["code"] == "HEAD_MOVED" {
+                    return Err(Error::HeadMoved);
+                }
                 return Err(Error::Rejected(status));
             }
-            return Ok(value);
+            return Ok(WireResponse {
+                bytes,
+                etag,
+                size,
+                offset,
+            });
         }
         Err(Error::Authentication)
+    }
+    pub(crate) fn ready(&mut self) -> Result<()> {
+        if self.credentials.expires_at <= now()?.saturating_add(30)
+            || !self.credentials.refresh_key.is_empty()
+        {
+            self.refresh()?;
+        }
+        Ok(())
     }
     pub fn begin_enrollment(&mut self, name: &str, os: &str, version: &str) -> Result<Enrollment> {
         if !self.credentials.refresh_token.is_empty() {
@@ -384,11 +434,7 @@ impl DeviceClient {
         body: Option<&Value>,
         key: Option<&str>,
     ) -> Result<Value> {
-        if self.credentials.expires_at <= now()?.saturating_add(30)
-            || !self.credentials.refresh_key.is_empty()
-        {
-            self.refresh()?;
-        }
+        self.ready()?;
         self.send(method, path, body, key, true)
     }
     pub fn sign_out(&mut self) -> Result<()> {

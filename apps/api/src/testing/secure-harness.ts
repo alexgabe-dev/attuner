@@ -9,12 +9,16 @@ export type Response = {
   status: number;
   headers: IncomingHttpHeaders;
   body: Record<string, unknown>;
+  bytes: Buffer;
 };
-export async function secureHarness() {
+export async function secureHarness(
+  options: { blobDirectory?: string; databaseFilename?: string } = {},
+) {
   const tls = await tlsFixture(),
-    db = await DatabaseWorker.open();
+    db = await DatabaseWorker.open(options.databaseFilename);
   let clock = Math.floor(Date.now() / 1000);
   const { app, security } = await createSecureApp(db, {
+    ...options,
     tls: tls.tls,
     deliveryKey: randomBytes(32),
     now: () => clock,
@@ -29,7 +33,8 @@ export async function secureHarness() {
     body?: unknown,
     headers: Record<string, string> = {},
   ): Promise<Response> {
-    const data = body === undefined ? undefined : JSON.stringify(body);
+    const data =
+      body === undefined ? undefined : Buffer.isBuffer(body) ? body : JSON.stringify(body);
     return await new Promise((resolve, reject) => {
       const q = request(
         origin + path,
@@ -39,7 +44,9 @@ export async function secureHarness() {
           headers: {
             ...(data
               ? {
-                  'content-type': 'application/json',
+                  'content-type': Buffer.isBuffer(data)
+                    ? 'application/octet-stream'
+                    : 'application/json',
                   'content-length': String(Buffer.byteLength(data)),
                 }
               : {}),
@@ -47,13 +54,16 @@ export async function secureHarness() {
           },
         },
         (response) => {
-          let bytes = '';
-          response.on('data', (part) => (bytes += part));
+          const chunks: Buffer[] = [];
+          response.on('data', (part: Buffer) => chunks.push(part));
           response.on('end', () =>
             resolve({
               status: response.statusCode!,
               headers: response.headers,
-              body: bytes ? JSON.parse(bytes) : {},
+              body: response.headers['content-type']?.includes('application/json')
+                ? JSON.parse(Buffer.concat(chunks).toString('utf8'))
+                : {},
+              bytes: Buffer.concat(chunks),
             }),
           );
         },
@@ -132,7 +142,7 @@ export class SyntheticDevice {
     const payload = Buffer.from(
       JSON.stringify({
         htm: method,
-        htu: h.origin + path,
+        htu: h.origin + new URL(path, h.origin).pathname,
         iat: h.now(),
         jti: randomUUID(),
         ...(this.nonce ? { nonce: this.nonce } : {}),

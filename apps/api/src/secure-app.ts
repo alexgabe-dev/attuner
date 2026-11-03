@@ -5,12 +5,15 @@ import { buildApp } from './app.ts';
 import type { ServerTLS } from './tls.ts';
 import { Security } from './security/service.ts';
 import { securityRoutes } from './security/routes.ts';
+import { BlobStorage } from './sync/storage.ts';
+import { syncRoutes } from './sync/routes.ts';
 import { ApiError } from './security/primitives.ts';
 export type SecureOptions = {
   tls: ServerTLS;
   deliveryKey: Buffer;
   publicOrigin?: string;
   now?: () => number;
+  blobDirectory?: string;
 };
 export async function createSecureApp(database: DatabaseWorker, options: SecureOptions) {
   await database.run("INSERT OR IGNORE INTO server_settings VALUES('server_id',?)", [randomUUID()]);
@@ -51,8 +54,26 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
       DEVICE_REVOKED: [401, 'DEVICE_REVOKED'],
       ENROLLMENT_CLOSED: [409, 'ENROLLMENT_CLOSED'],
       REFRESH_MOVED: [409, 'REFRESH_MOVED'],
+      SESSION_LIMIT: [429, 'SESSION_LIMIT'],
+      QUOTA_EXCEEDED: [413, 'QUOTA_EXCEEDED'],
+      TRANSFER_CLOSED: [409, 'TRANSFER_CLOSED'],
+      BLOB_CORRUPT: [422, 'BLOB_CORRUPT'],
+      IDEMPOTENCY_MISMATCH: [409, 'IDEMPOTENCY_MISMATCH'],
     };
     const mapped = error instanceof Error ? transactionErrors[error.message] : undefined;
+    if (error instanceof Error && 'code' in error && error.code === 'ENOSPC')
+      error = new ApiError(507, 'INSUFFICIENT_SPACE', 'Storage has insufficient free space.');
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      error.code.startsWith('FST_ERR_CTP_')
+    )
+      error = new ApiError(
+        error.code === 'FST_ERR_CTP_BODY_TOO_LARGE' ? 413 : 400,
+        'INVALID_REQUEST',
+        'Request body was not accepted.',
+      );
     if (mapped)
       error = new ApiError(mapped[0], mapped[1], 'The request is no longer authorized or current.');
     const status =
@@ -111,6 +132,11 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
     return payload;
   });
   securityRoutes(app, security);
+  if (options.blobDirectory) {
+    const storage = new BlobStorage(options.blobDirectory);
+    await storage.initialize();
+    syncRoutes(app, security, storage);
+  }
   return { app, security };
 }
 export function deliveryKey(env: NodeJS.ProcessEnv = process.env) {

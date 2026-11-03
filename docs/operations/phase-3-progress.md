@@ -39,3 +39,13 @@ Work is on `phase3-secure-sync`. No real installation or production deployment i
 ### M2 hosted follow-up
 
 Hosted run 41725077662 passed Linux and Windows Server 2022, including Windows Credential Manager and Rust-to-Node TLS enrollment/recovery. macOS Keychain passed, but its test certificate generation failed with OpenSSL 3.6. The isolated certificate helper now uses pinned `@peculiar/x509` with Node WebCrypto and encrypted PKCS#8 export, removing OpenSSL/CLI variability. This dependency is confined to development/test TLS generation; the normal runtime still loads externally managed TLS material. Local Node HTTPS and Rust TLS enrollment pass with the replacement. Native Windows filesystem apply and Windows 11 UI remain unqualified.
+
+## M3 — verified resumable transfer foundation
+
+- Added candidate sessions with independent namespace/policy/coverage validation and canonical BLAKE3 identity, stable upload IDs, immutable verified chunk receipts and explicit session cancellation.
+- Added server-owned, profile-separated raw CAS storage: bounded 64 KiB hashing/assembly, no-clobber publication, file/directory sync before database receipts, exact size/hash checks and symlink/hard-link rejection. Two transfer/session bodies admitted before parsing; quota reservations and free-space reserve checks fail closed.
+- Rust upload/download supports cancellation and chunk-boundary resume, rehashes resumed prefixes and verifies complete content. Profile-verified unchanged objects produce zero payload upload and do not read the source.
+- Actual HTTPS evidence: 63 TypeScript tests and 44 Rust tests passed, including server reopen, lost chunk/completion receipt, corruption, range/ETag checks, revoked/read-only/cross-profile access, quota and injected disk exhaustion. Native transfer test cancels after 4 MiB, resumes without reuploading that chunk, cancels/resumes download and rejects a corrupt prefix.
+- Formatting, lint/typechecks, package builds and workspace Clippy pass. No migration change was required; M1's transfer ledger is used. Publication/CAS remains disabled until M4.
+- Central blob server explicitly targets Unix. Test-only Windows enrollment server does not enable blob storage; hosted Windows credential/protocol evidence is not Unix durability evidence.
+- Remaining operational limits: no automatic orphan GC, scratch reconciliation or total multi-profile storage quota yet. Orphans are never verified by metadata alone, and free-space reserve checks block further writes. These are production deployment gates. See `docs/architecture/phase-3-api.md`.

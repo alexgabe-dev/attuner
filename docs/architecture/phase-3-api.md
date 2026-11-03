@@ -1,0 +1,50 @@
+# Phase 3 API — implemented security and transfers
+
+All routes use `/api/v1` over certificate-verified HTTPS. Tokens and configuration contents are excluded from server logs. JSON contracts live in `packages/sync-protocol`; Rust independently validates remote input. This is a synthetic-only development service, without deployment authorization.
+
+## Authentication
+
+| Method | Route                            | Access and behavior                                                                                                                                                                               |
+| ------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/auth/login`                    | Local account password; exact origin, rate limit, Argon2id. Secure cookie and CSRF response.                                                                                                      |
+| GET    | `/auth/session`                  | Current cookie session and CSRF value.                                                                                                                                                            |
+| POST   | `/auth/logout`                   | Current cookie, origin and CSRF; deletes session.                                                                                                                                                 |
+| POST   | `/auth/reauthenticate`           | Current cookie, origin, CSRF and password; renews five-minute recent-auth window.                                                                                                                 |
+| POST   | `/auth/enrollments`              | P-256 DPoP, S256 challenge, state and device metadata. UUID idempotency key. Ten-minute enrollment.                                                                                               |
+| GET    | `/auth/enrollments/:id`          | Signed-in browser retrieves public device approval details.                                                                                                                                       |
+| POST   | `/auth/enrollments/:id/decision` | Recent browser authentication; approve explicit per-profile read/write grants or deny. Matching decision retries recover the same encrypted callback delivery.                                    |
+| POST   | `/auth/token`                    | DPoP-bound code/PKCE redemption or refresh rotation, UUID idempotency key. Matching retries return the same token pair for five minutes. Reuse with a new request key revokes the refresh family. |
+| POST   | `/auth/device-logout`            | Active device proof; revokes device, credentials and uncommitted jobs.                                                                                                                            |
+| GET    | `/profiles`                      | Device grants intersect current ownership/membership, or current browser memberships.                                                                                                             |
+| POST   | `/profiles`                      | Recent browser authentication; synthetic profile only, idempotent.                                                                                                                                |
+| GET    | `/devices`                       | Current browser's devices.                                                                                                                                                                        |
+| POST   | `/devices/:id/revocations`       | Recent browser authentication; owner only; revokes pending operations and credentials atomically.                                                                                                 |
+
+DPoP proofs bind method, canonical origin/path (excluding query), timestamp, random proof ID, server nonce and access-token hash. ES256/P-256 only; no remote key URLs. Nonces expire in two minutes, proofs permit sixty seconds of clock skew, replay IDs are retained through their acceptance window. Cookie authorization is never accepted as device authorization.
+
+## Candidate sessions and content transfer
+
+Prefix below is `/profiles/:profileId`; every route requires a currently authorized device. Writes require both a device write grant and owner/writer membership. Mutation transactions recheck credentials and membership after I/O. No global hash-presence endpoint exists.
+
+| Method | Route                                 | Behavior                                                                                                                                                                                                             |
+| ------ | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| POST   | `/sessions`                           | Validates publication envelope, complete root coverage, namespace, policy, consistency groups, canonical BLAKE3 identity. UUID idempotency key; creates an expiring candidate. This does **not** publish a revision. |
+| GET    | `/sessions/:sessionId`                | Owner-device session status and at most 200 upload summaries.                                                                                                                                                        |
+| POST   | `/sessions/:sessionId/cancellations`  | Explicit cancellation; published history cannot be cancelled.                                                                                                                                                        |
+| POST   | `/sessions/:sessionId/uploads`        | Hash/size must occur in candidate. Reuses only profile-verified content, after physical verification; otherwise reserves quota and returns a stable upload ID.                                                       |
+| GET    | `/uploads/:uploadId`                  | Durable ordered chunk receipts for resume, at most 256 chunks.                                                                                                                                                       |
+| PUT    | `/uploads/:uploadId/chunks/:position` | Octet stream; exact 4 MiB chunk or final remainder. Position retries require identical BLAKE3 and length. Receipt follows file sync, no-clobber link publication and directory sync.                                 |
+| POST   | `/uploads/:uploadId/completion`       | Requires contiguous receipts; streams original content, checks total BLAKE3/size, syncs and verifies the profile object before creating verified database references.                                                |
+| GET    | `/blobs/:hash?offset=N&length=N`      | Profile grant plus verified profile reference; maximum 4 MiB range, exact `If-Match` hash. Returns ETag, X-Blob-Size and X-Blob-Offset. Reads are audited before bytes are released.                                 |
+
+A central server admits two transfer/session bodies concurrently before parsing, with bounded chunks and manifests. Metadata mutations run through the bounded database worker. Profile quotas include retained unverified reservations, including failed/expired uploads; retrying cannot reclaim credits while bytes remain. There is no automatic GC. A 16 MiB free-space reserve is checked before writes; OS ENOSPC still fails safely if free space changes concurrently.
+
+The Rust client handles nonce challenges, cancellation at stream boundaries, durable server upload receipts, complete hash verification after resumed downloads and zero transfer of profile-verified unchanged content. The caller supplies a verified backup reader or an owned staging stream. Successful download is not an installation/apply action. Local core verification and explicit approval remain required.
+
+## Durability and current limits
+
+Blob storage targets a local Unix filesystem on the central server and fails closed on a Windows server. Windows clients remain supported independently. Only server-generated UUID/hash path components reach storage; manifest paths never do. Symlinks and hard-linked objects are rejected. Server configuration and its storage parent are administrator controlled.
+
+Crashes can retain temporary/orphan files. They confer no verified access, are never automatically trusted and consume real disk space; reserve checks keep subsequent operations fail-closed. Automated orphan reconciliation, quotas across all profiles, retention/GC and volume-loss recovery remain operational work. No automatic content deletion is provided. These limits must be resolved before production deployment.
+
+Immutable publication/CAS, coordinator acknowledgements and live web/desktop management are subsequent milestones and are not implied by a verified upload.
