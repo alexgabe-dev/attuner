@@ -1,0 +1,14 @@
+{
+  "bytes": 67108864,
+  "coldPayloadUploadedBytes": 67108864,
+  "coldUploadMs": 751.0485,
+  "compressedImportMs": 105.9345,
+  "downloadWithDurableCheckpointsMs": 412.62,
+  "fullInputAllocation": false,
+  "publicationMs": 98.41624999999999,
+  "rawReadBufferBytes": 65536,
+  "scope": "isolated synthetic TLS loopback; one 64 MiB repeated-byte object; warm OS cache; cold and warm remote CAS",
+  "transferChunkBytes": 4194304,
+  "warmPayloadUploadedBytes": 0,
+  "warmReuseMs": 94.859709
+}

@@ -884,3 +884,142 @@ fn lost_publication_response_recovers_original_fact_without_applying_over_new_ed
     drop(engine);
     std::fs::remove_dir_all(path).unwrap();
 }
+#[cfg(unix)]
+#[test]
+#[ignore = "manual 64 MiB synthetic HTTPS performance measurement; run explicitly in release mode"]
+fn large_network_benchmark() {
+    use attuner_sync_client::BlobIdentity;
+    use attuner_sync_core::{Control, Manifest, ManifestFile};
+    use std::{io::Read, time::Instant};
+    const SIZE: u64 = 64 * 1024 * 1024;
+    let mut fixture = Fixture::with_blobs(true);
+    let mut client = fixture.enrolled_client("Synthetic network benchmark");
+    let mut engine = fixture.bound_engine();
+    let path = engine.path().to_owned();
+    let control = Control::fixture();
+    let block = [0x57u8; 65536];
+    let mut digest = blake3::Hasher::new();
+    for _ in 0..SIZE / 65536 {
+        digest.update(&block);
+    }
+    let hash = digest.finalize().to_hex().to_string();
+    let entry = ManifestFile {
+        root: "account".into(),
+        path: "Synthetic.large".into(),
+        hash: hash.clone(),
+        size: SIZE,
+        group: format!(
+            "account:{}",
+            &blake3::hash(b"Synthetic.large").to_hex()[..24]
+        ),
+    };
+    let manifest = Manifest {
+        protocol_version: 1,
+        profile_id: fixture.profile_id.clone(),
+        policy_version: 1,
+        files: vec![entry.clone()],
+    };
+    let policy = client.fetch_head(&fixture.profile_id).unwrap();
+    let session = client
+        .stage_snapshot(&manifest, &policy, None, &uuid::Uuid::new_v4().to_string())
+        .unwrap();
+    let blob = BlobIdentity {
+        profile_id: &fixture.profile_id,
+        hash: &hash,
+        size: SIZE,
+    };
+    let start = Instant::now();
+    let mut uploaded = 0;
+    client
+        .upload_blob(
+            blob,
+            &session.session_id,
+            &mut std::io::repeat(0x57).take(SIZE),
+            &control,
+            |p| uploaded = p.completed_bytes - p.reused_bytes,
+        )
+        .unwrap();
+    let upload_ms = start.elapsed().as_secs_f64() * 1000.;
+    let start = Instant::now();
+    let mut reused = 0;
+    client
+        .upload_blob(
+            blob,
+            &session.session_id,
+            &mut std::io::empty(),
+            &control,
+            |p| reused = p.reused_bytes,
+        )
+        .unwrap();
+    let warm_ms = start.elapsed().as_secs_f64() * 1000.;
+    let start = Instant::now();
+    let head = client
+        .publish_reviewed(&manifest, &policy.head, &session)
+        .unwrap();
+    let publish_ms = start.elapsed().as_secs_f64() * 1000.;
+    let start = Instant::now();
+    let mut stage = engine.download_stage(&entry, &control).unwrap();
+    client
+        .download_blob_durable(
+            blob,
+            &mut stage,
+            0,
+            &control,
+            |_| {},
+            |stage, n, h| Ok(stage.checkpoint(n, h)?),
+        )
+        .unwrap();
+    let download_ms = start.elapsed().as_secs_f64() * 1000.;
+    let start = Instant::now();
+    engine.import_download(stage, &control).unwrap();
+    let import_ms = start.elapsed().as_secs_f64() * 1000.;
+    assert!(engine.has_verified_blob(&entry, &control).unwrap());
+    assert_eq!(uploaded, SIZE);
+    assert_eq!(reused, SIZE);
+    assert_eq!(head.revision, 1);
+    println!(
+        "ATTUNER_BENCHMARK {}",
+        json!({"scope":"isolated synthetic TLS loopback; one 64 MiB repeated-byte object; warm OS cache; cold and warm remote CAS","bytes":SIZE,"coldUploadMs":upload_ms,"warmReuseMs":warm_ms,"downloadWithDurableCheckpointsMs":download_ms,"compressedImportMs":import_ms,"publicationMs":publish_ms,"coldPayloadUploadedBytes":uploaded,"warmPayloadUploadedBytes":SIZE-reused,"rawReadBufferBytes":65536,"transferChunkBytes":4194304,"fullInputAllocation":false})
+    );
+    drop(engine);
+    std::fs::remove_dir_all(path).unwrap();
+}
+#[cfg(unix)]
+#[test]
+fn restoring_known_content_publishes_a_new_revision_without_export_or_upload() {
+    use attuner_sync_client::{BootstrapChoice, Coordinator};
+    use attuner_sync_core::{Control, Point};
+    let mut fixture = Fixture::with_blobs(true);
+    let mut client = fixture.enrolled_client("Verified content reuse fixture");
+    let mut engine = fixture.bound_engine();
+    explicit_sync(&mut engine, &mut client, BootstrapChoice::Local);
+    let path = engine.path().to_owned();
+    let file = path.join("installation/ProfileData/SavedVariables/WeakAuras.lua");
+    let original = std::fs::read(&file).unwrap();
+    std::fs::write(&file, b"new inert synthetic variant").unwrap();
+    explicit_sync(&mut engine, &mut client, BootstrapChoice::Local);
+    std::fs::write(&file, original).unwrap();
+    let exports = Arc::new(AtomicUsize::new(0));
+    let observed = exports.clone();
+    let control = Control::fixture().with_observer(move |e| {
+        if matches!(e.point, Point::StageChunk | Point::BackupEncode) {
+            observed.fetch_add(1, Ordering::SeqCst);
+        }
+        Ok(())
+    });
+    let mut coordinator = Coordinator::new(&mut engine, &mut client, &control).unwrap();
+    let job = coordinator.prepare().unwrap();
+    let digest = coordinator.approval_digest(&job.data.id).unwrap();
+    let mut uploaded = 0;
+    let published = coordinator
+        .publish_approved(&job.data.id, &digest, |_, p| {
+            uploaded += p.completed_bytes - p.reused_bytes
+        })
+        .unwrap();
+    assert_eq!(published.data.published_head.unwrap().revision, 3);
+    assert_eq!(uploaded, 0);
+    assert_eq!(exports.load(Ordering::SeqCst), 0);
+    drop(coordinator);
+    drop(engine);
+    std::fs::remove_dir_all(path).unwrap();
+}

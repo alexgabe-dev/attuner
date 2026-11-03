@@ -65,3 +65,7 @@ The following routes are now implemented under the same profile prefix:
 Migration 0006 seals candidate/publication identity and protects committed session state and idempotency/chunk receipts. The commit uses JSON-table insertion from the already bounded candidate, avoiding a 100,000-statement request. No content hashing or filesystem I/O occurs within SQLite's IMMEDIATE publication transaction. Audit failure rolls the entire publication back. Revisions remain safe integers; exhaustion fails closed.
 
 Local coordinator acknowledgements and live web/desktop integration remain subsequent work. A server commit is not evidence of local application.
+
+## Verified range index
+
+Migration 0007 stores immutable profile-scoped chunk identities after whole-object completion. Downloads hash only intersecting verified chunks, including ranges crossing a chunk boundary, and check pinned-handle metadata before/after. Legacy objects without a complete index retain full-object verification. The complete client-side original BLAKE3 check remains mandatory. This changes server read work, not wire identity or local recovery authority.

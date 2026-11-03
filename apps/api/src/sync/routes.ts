@@ -426,6 +426,16 @@ export function syncRoutes(app: FastifyInstance, security: Security, storage: Bl
         sql: "INSERT INTO profile_blobs VALUES(?,?,?,'verified',?) ON CONFLICT(profile_id,hash) DO UPDATE SET state='verified' WHERE size=excluded.size",
         params: [profileId, u.hash, u.size, security.now()],
       },
+      {
+        sql: 'INSERT OR IGNORE INTO profile_blob_chunks SELECT ?,?,position,size,hash FROM upload_chunks WHERE upload_id=?',
+        params: [profileId, u.hash, u.id],
+      },
+      {
+        sql: 'SELECT 1 WHERE (SELECT count(*) FROM profile_blob_chunks WHERE profile_id=? AND hash=?)=?',
+        params: [profileId, u.hash, Math.ceil(u.size / LIMITS.chunkBytes)],
+        expect: 1,
+        code: 'BLOB_CORRUPT',
+      },
       { sql: "UPDATE upload_sessions SET state='verified' WHERE id=?", params: [u.id] },
       ...security.auditStatements(
         { kind: 'device', id: d.id },
@@ -451,7 +461,13 @@ export function syncRoutes(app: FastifyInstance, security: Security, storage: Bl
       throw new ApiError(416, 'INVALID_RANGE', 'Range is outside the object.');
     if (request.headers['if-match'] !== `"${hash}"`)
       throw new ApiError(412, 'ETAG_REQUIRED', 'Use the verified blob identity.');
-    const bytes = await storage.range(profileId, hash, size, query.offset, query.length);
+    const first = Math.floor(query.offset / LIMITS.chunkBytes),
+      last = Math.floor((query.offset + Math.max(1, query.length) - 1) / LIMITS.chunkBytes);
+    const chunks = await security.db.query<{ position: number; size: number; hash: string }>(
+      'SELECT position,size,chunk_hash AS hash FROM profile_blob_chunks WHERE profile_id=? AND hash=? AND position>=? AND position<=? ORDER BY position',
+      [profileId, hash, first, last],
+    );
+    const bytes = await storage.range(profileId, hash, size, query.offset, query.length, chunks);
     // Recheck after I/O; authorization is current when the read is audited and released.
     await security.db.transaction([
       ...security.deviceGuard(request.syncDevice!, profileId),

@@ -7,8 +7,7 @@ use attuner_sync_core::{
     synchronization::{Binding, Decision, JobData, JobState, SyncJob},
 };
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use std::io::{Seek, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum BootstrapChoice {
@@ -50,7 +49,9 @@ impl<'a> Coordinator<'a> {
         let mut control = self.control.clone();
         control.cancellation = Cancellation::default();
         job.data.reason = Some(error.to_string().chars().take(4096).collect());
-        if matches!(error, Error::Transport | Error::Rejected(429 | 503)) {
+        if self.control.cancellation.is_cancelled() {
+            job.state = JobState::Cancelled;
+        } else if matches!(error, Error::Transport | Error::Rejected(429 | 503)) {
             job.data.resume_state = Some(job.state);
             job.state = JobState::Offline;
         } else if matches!(error, Error::Authentication) {
@@ -379,42 +380,13 @@ impl<'a> Coordinator<'a> {
                 if !seen.insert(&entry.hash) {
                     continue;
                 }
-                let start = self.client.request(
-                    "POST",
-                    &format!(
-                        "/api/v1/profiles/{}/sessions/{session}/uploads",
-                        self.binding.profile_id
-                    ),
-                    Some(&json!({"hash":entry.hash,"size":entry.size})),
-                    None,
-                )?;
-                if start["verified"] == true && start["hash"] == entry.hash {
-                    progress(
-                        entry,
-                        TransferProgress {
-                            completed_bytes: entry.size,
-                            total_bytes: entry.size,
-                            reused_bytes: entry.size,
-                        },
-                    );
-                    continue;
-                }
-                if !local
-                    .manifest()
-                    .files
-                    .iter()
-                    .any(|f| f.hash == entry.hash && f.size == entry.size)
-                {
-                    return Err(Error::Protocol);
-                }
-                let mut source = tempfile::tempfile()?;
-                self.engine.export_snapshot_blob(
-                    local.id,
-                    &entry.hash,
-                    &mut source,
-                    self.control,
-                )?;
-                source.seek(SeekFrom::Start(0))?;
+                let mut source = BackupReader {
+                    engine: self.engine,
+                    snapshot: local.id,
+                    hash: &entry.hash,
+                    control: self.control,
+                    file: None,
+                };
                 self.client.upload_blob(
                     BlobIdentity {
                         profile_id: &self.binding.profile_id,
@@ -462,5 +434,30 @@ impl<'a> Coordinator<'a> {
         job.state = JobState::Cancelled;
         self.save(&mut job)?;
         Ok(job)
+    }
+}
+
+struct BackupReader<'a> {
+    engine: &'a Engine,
+    snapshot: i64,
+    hash: &'a str,
+    control: &'a Control,
+    file: Option<std::fs::File>,
+}
+impl Read for BackupReader<'_> {
+    fn read(&mut self, buffer: &mut [u8]) -> std::io::Result<usize> {
+        self.control.check().map_err(std::io::Error::other)?;
+        if self.file.is_none() {
+            let mut file = tempfile::tempfile()?;
+            self.engine
+                .export_snapshot_blob(self.snapshot, self.hash, &mut file, self.control)
+                .map_err(std::io::Error::other)?;
+            file.seek(SeekFrom::Start(0))?;
+            self.file = Some(file);
+        }
+        self.file
+            .as_mut()
+            .ok_or_else(|| std::io::Error::other("backup reader unavailable"))?
+            .read(buffer)
     }
 }

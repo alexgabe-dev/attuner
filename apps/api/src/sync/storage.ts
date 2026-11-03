@@ -180,22 +180,63 @@ export class BlobStorage {
     await this.syncDirectory(folder);
     await this.verify(profile, hash, size);
   }
-  async range(profile: string, hash: string, size: number, offset: number, length: number) {
-    await this.verify(profile, hash, size);
-    const handle = await open(
-      join(this.directory, 'p-' + profile, hash),
-      constants.O_RDONLY | constants.O_NOFOLLOW,
-    );
+  async range(
+    profile: string,
+    hash: string,
+    size: number,
+    offset: number,
+    length: number,
+    chunks: { position: number; size: number; hash: string }[],
+  ) {
+    const path = join(this.directory, 'p-' + profile, hash),
+      handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);
     try {
-      const bytes = Buffer.alloc(length);
-      let read = 0;
-      while (read < length) {
-        const part = await handle.read(bytes, read, length - read, offset + read);
-        if (!part.bytesRead)
-          throw new ApiError(422, 'BLOB_CORRUPT', 'Stored content was truncated.');
-        read += part.bytesRead;
+      const before = await handle.stat();
+      if (!before.isFile() || before.nlink !== 1 || before.size !== size)
+        throw new ApiError(422, 'BLOB_CORRUPT', 'Stored content failed verification.');
+      const first = Math.floor(offset / 4194304),
+        last = Math.floor((offset + Math.max(1, length) - 1) / 4194304);
+      const indexed =
+        chunks.length === last - first + 1 &&
+        chunks.every(
+          (c, i) =>
+            c.position === first + i && c.size === Math.min(4194304, size - c.position * 4194304),
+        );
+      // Legacy verified objects without a range index retain full-object verification.
+      // New indexes are copied only after whole-object completion, and are immutable.
+      const blocks = indexed
+        ? chunks.map((c) => ({ start: c.position * 4194304, size: c.size, hash: c.hash }))
+        : [{ start: 0, size, hash }];
+      const output = Buffer.alloc(length),
+        buffer = Buffer.alloc(65536);
+      for (const block of blocks) {
+        const digest = await createBLAKE3();
+        digest.init();
+        let read = 0;
+        while (read < block.size) {
+          const count = Math.min(buffer.length, block.size - read),
+            part = await handle.read(buffer, 0, count, block.start + read);
+          if (!part.bytesRead)
+            throw new ApiError(422, 'BLOB_CORRUPT', 'Stored content was truncated.');
+          digest.update(buffer.subarray(0, part.bytesRead));
+          const at = block.start + read,
+            start = Math.max(at, offset),
+            end = Math.min(at + part.bytesRead, offset + length);
+          if (end > start) buffer.copy(output, start - offset, start - at, end - at);
+          read += part.bytesRead;
+        }
+        if (digest.digest() !== block.hash)
+          throw new ApiError(422, 'BLOB_CORRUPT', 'Stored range failed content verification.');
       }
-      return bytes;
+      const after = await handle.stat();
+      if (
+        after.size !== before.size ||
+        after.mtimeMs !== before.mtimeMs ||
+        after.ctimeMs !== before.ctimeMs ||
+        after.nlink !== 1
+      )
+        throw new ApiError(422, 'BLOB_CORRUPT', 'Stored content changed while reading.');
+      return output;
     } finally {
       await handle.close();
     }

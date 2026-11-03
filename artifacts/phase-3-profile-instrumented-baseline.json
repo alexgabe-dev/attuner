@@ -1,0 +1,60 @@
+{
+  "applyOneChangeMs": 5493.635249999999,
+  "bytes": 175177882,
+  "changedCaptureCheckpoints": {
+    "BackupChunk": 1,
+    "BackupEncode": 1,
+    "BackupFlush": 1,
+    "BackupObjectVerify": 1,
+    "BackupVerified": 1,
+    "CaptureDatabase": 1,
+    "CaptureScan": 2,
+    "Discover": 9,
+    "HashChunk": 72306,
+    "ScanEntry": 90063,
+    "ScanValidated": 3
+  },
+  "changedCaptureMs": 3749.663459,
+  "files": 10004,
+  "firstCaptureCheckpoints": {
+    "BackupChunk": 12051,
+    "BackupEncode": 10004,
+    "BackupFlush": 10004,
+    "BackupObjectVerify": 10004,
+    "BackupVerified": 10004,
+    "CaptureDatabase": 1,
+    "CaptureScan": 2,
+    "Discover": 6,
+    "HashChunk": 48204,
+    "ScanEntry": 60042,
+    "ScanValidated": 2
+  },
+  "firstCaptureTimingsMicros": {
+    "BackupEncode": 1872582,
+    "BackupFlush": 31097087,
+    "BackupObjectVerify": 1313154,
+    "CaptureDatabase": 14923,
+    "CaptureScan": 2605253
+  },
+  "hashReadBufferBytes": 65536,
+  "scanHashPasses": 2,
+  "scanLogicalMiBPerSecond": 127.37796689193098,
+  "scanMs": 1311.5505839999998,
+  "scope": "isolated synthetic directory; warm OS cache; first capture cold CAS, unchanged capture warm CAS",
+  "snapshotMs": 45658.020833,
+  "sqlite": "3.54.1",
+  "unchangedCaptureCheckpoints": {
+    "CaptureDatabase": 1,
+    "CaptureScan": 2,
+    "Discover": 6,
+    "HashChunk": 48204,
+    "ScanEntry": 60042,
+    "ScanValidated": 2
+  },
+  "unchangedCaptureMs": 3757.7207919999996,
+  "unchangedCaptureTimingsMicros": {
+    "CaptureDatabase": 18819,
+    "CaptureScan": 2642242
+  },
+  "verifyMs": 460.282083
+}

@@ -115,22 +115,56 @@ impl Engine {
         let _lock = self.workspace.lock()?;
         self.ensure_idle()?;
         self.validate_scan(scan)?;
-        let current = scan::scan(&self.workspace, &self.adapter, control, &self.limits)?;
-        if current.manifest != scan.manifest {
-            return Err(Error::Concurrent("snapshot scan expired".into()));
+        // The supplied receipt already proves a complete two-pass scan. Capture
+        // each expected object, then require another complete two-pass scan before
+        // publishing references. A third full pre-capture scan adds no stability proof.
+        let objects = self.workspace.internal("state/objects")?;
+        let mut seen = std::collections::BTreeMap::new();
+        let mut needed = self.limits.disk_reserve;
+        for entry in &scan.manifest.files {
+            let metadata_bytes =
+                (entry.path.len() + entry.root.len() + entry.group.len() + entry.hash.len() + 256)
+                    as u64;
+            needed = needed
+                .checked_add(
+                    metadata_bytes
+                        .checked_mul(3)
+                        .ok_or_else(|| Error::Limit("snapshot metadata budget".into()))?,
+                )
+                .ok_or_else(|| Error::Limit("snapshot space".into()))?;
+            if let Some(size) = seen.insert(&entry.hash, entry.size) {
+                if size != entry.size {
+                    return Err(Error::Integrity("inconsistent content size".into()));
+                }
+                continue;
+            }
+            match objects.symlink_metadata(format!("{}.zst", entry.hash)) {
+                Ok(metadata) => {
+                    crate::workspace::check_meta(&metadata, "existing backup object", true)?
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    let budget = entry
+                        .size
+                        .checked_add(4096)
+                        .and_then(|n| n.checked_mul(2))
+                        .ok_or_else(|| Error::Limit("new object budget".into()))?;
+                    needed = needed
+                        .checked_add(budget)
+                        .ok_or_else(|| Error::Limit("backup space".into()))?;
+                }
+                Err(error) => return Err(error.into()),
+            }
         }
-        let needed = scan
-            .bytes
-            .checked_mul(2)
-            .and_then(|n| n.checked_add(self.limits.disk_reserve))
-            .ok_or_else(|| Error::Limit("backup budget".into()))?;
         self.check_space(needed, control)?;
         for entry in &scan.manifest.files {
+            control.check()?;
             let file =
                 scan::managed_file(&self.workspace, &self.adapter, &entry.root, &entry.path)?;
             backup::put(&self.workspace, file, entry, control, &self.limits)?;
         }
+        let scan_start = std::time::Instant::now();
         let verified = scan::scan(&self.workspace, &self.adapter, control, &self.limits)?;
+        control.timed(crate::Point::CaptureScan, 1, "", scan_start)?;
         if verified.manifest != scan.manifest {
             return Err(Error::Concurrent(
                 "files changed while capturing snapshot".into(),
@@ -138,7 +172,10 @@ impl Engine {
         }
         control.check()?;
         crate::workspace::sync_dir(&self.workspace.internal("state/objects")?)?;
-        self.store.capture(scan, label)
+        let database_start = std::time::Instant::now();
+        let snapshot = self.store.capture(scan, label)?;
+        let _ = control.timed(crate::Point::CaptureDatabase, 0, "", database_start);
+        Ok(snapshot)
     }
     pub fn snapshots(&self, control: &Control) -> Result<Vec<Snapshot>> {
         control.check()?;

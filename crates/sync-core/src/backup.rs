@@ -23,10 +23,12 @@ pub(crate) fn put(
     let name = format!("{}.zst", entry.hash);
     if objects.try_exists(&name)? {
         verify(workspace, entry, control, limits)?;
+        control.event(Point::BackupReused, 0, &entry.path)?;
         return Ok(());
     }
     let temp = workspace.new_name("backup");
     let output = create_file(&objects, &temp)?;
+    let encode_start = std::time::Instant::now();
     let mut encoder = zstd::stream::write::Encoder::new(output, 3)?;
     encoder.include_checksum(true)?;
     let mut hash = blake3::Hasher::new();
@@ -58,10 +60,15 @@ pub(crate) fn put(
         return Err(error);
     }
     let output = encoder.finish()?;
+    control.timed(Point::BackupEncode, 0, &entry.path, encode_start)?;
+    let flush_start = std::time::Instant::now();
     output.sync_all()?;
+    control.timed(Point::BackupFlush, 0, &entry.path, flush_start)?;
     drop(output);
     // Verify compressed bytes before exposing a content-addressed name.
+    let verify_start = std::time::Instant::now();
     decode(&objects, &temp, entry, None, control, limits)?;
+    control.timed(Point::BackupObjectVerify, 0, &entry.path, verify_start)?;
     // Private CAS promotion is serialized by the workspace lock. One rename avoids
     // a crash leaving a second hard link that would fail the strict object checks.
     objects.rename(&temp, &objects, &name)?;

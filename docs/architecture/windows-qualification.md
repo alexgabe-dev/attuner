@@ -4,7 +4,7 @@ Windows Server 2022 CI independently builds Tauri, runs portable core/protocol c
 
 ## Native probes started during M3/M4
 
-`crates/sync-core/tests/windows_qualification.rs` runs only on Windows, in newly minted temporary synthetic directories. It probes local NTFS, handle file IDs and volume identity, hard-link counts, junction/reparse visibility without following, no-replace rename, sharing violations, file flush and byte preservation. These are prerequisite measurements, not a completed recovery implementation or power-loss proof. Hosted execution must pass before any claim is made about these behaviors.
+`crates/sync-core/tests/windows_qualification.rs` runs only on Windows, in newly minted temporary synthetic directories. It probes local NTFS, handle file IDs and volume identity, hard-link counts, junction/reparse visibility without following, no-replace rename, sharing violations, file flush and byte preservation. These are prerequisite measurements, not a completed recovery implementation or power-loss proof. Hosted run 41727481100 passed these probes independently on Windows Server 2022. This still does not enable apply.
 
 ## Implementation order
 
@@ -19,4 +19,4 @@ Windows Server 2022 CI independently builds Tauri, runs portable core/protocol c
 
 Microsoft documents file-buffer flushes and the write-through move flag. Its move documentation specifically describes the flush guarantee for a copy/delete move; that statement alone does not establish Unix directory-fsync-equivalent durability for the engine's same-volume multi-step journal. The native probes therefore leave apply disabled until a reviewed native handle/journal protocol and crash/power-loss evidence close that gap. See [FlushFileBuffers](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-flushfilebuffers) and [MoveFileExW](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw).
 
-No real game files are part of any qualification. A Windows 11 VM with local NTFS, permission for synthetic reparse/ACL tests and retained-disk reset control is the remaining environment prerequisite. Signing certificates and production deployment are outside this work.
+No real game files are part of any qualification. The user has a physical Windows 11 PC and will run the standalone bundle described in `docs/operations/windows-11-qualification.md`; no self-hosted runner is required. Controlled retained-disk reset testing remains a separate prerequisite before filesystem apply can be qualified. Signing certificates and production deployment are outside this work.

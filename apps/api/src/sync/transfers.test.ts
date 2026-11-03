@@ -281,3 +281,52 @@ it('does not expose an object before durable completion and safely retries publi
   ).toBe(200);
   expect((await d.send(h, 'POST', completePath(c.uploadId), {})).body.code).toBe('TRANSFER_CLOSED');
 });
+it('verifies cross-chunk ranges against immutable completion metadata', async () => {
+  const d = await enroll(),
+    bytes = Buffer.alloc(LIMITS.chunkBytes + 17, 0x31);
+  for (let i = 0; i < 25; i++) bytes[bytes.length - 25 + i] = i;
+  const c = await candidate(d, bytes);
+  await d.send(h, 'PUT', chunkPath(c.uploadId), bytes.subarray(0, LIMITS.chunkBytes));
+  await d.send(h, 'PUT', chunkPath(c.uploadId, 1), bytes.subarray(LIMITS.chunkBytes));
+  expect((await d.send(h, 'POST', completePath(c.uploadId), {})).body.verified).toBe(true);
+  expect(
+    await h.db.query(
+      'SELECT position,size FROM profile_blob_chunks WHERE profile_id=? AND hash=? ORDER BY position',
+      [profileId, c.hash],
+    ),
+  ).toEqual([
+    { position: 0, size: LIMITS.chunkBytes },
+    { position: 1, size: 17 },
+  ]);
+  const offset = LIMITS.chunkBytes - 8,
+    length = 17,
+    path = `/api/v1/profiles/${profileId}/blobs/${c.hash}?offset=${offset}&length=${length}`;
+  const get = () =>
+    h.send('GET', path, undefined, {
+      authorization: 'DPoP ' + d.accessToken,
+      dpop: d.proof(h, 'GET', path),
+      'if-match': `"${c.hash}"`,
+    });
+  const response = await get();
+  expect(response.status).toBe(200);
+  expect(response.bytes.equals(bytes.subarray(offset, offset + length))).toBe(true);
+  await expect(
+    h.db.run('UPDATE profile_blob_chunks SET chunk_hash=? WHERE profile_id=? AND hash=?', [
+      '0'.repeat(64),
+      profileId,
+      c.hash,
+    ]),
+  ).rejects.toThrow('immutable');
+  const legacy = new BlobStorage(join(directory, 'objects'));
+  expect(
+    (await legacy.range(profileId, c.hash, bytes.length, offset, length, [])).equals(
+      response.bytes,
+    ),
+  ).toBe(true);
+  const corrupted = Buffer.from(bytes);
+  corrupted[offset] = corrupted[offset]! ^ 1;
+  const object = join(directory, 'objects', 'p-' + profileId, c.hash);
+  await writeFile(object, corrupted);
+  expect((await get()).body.code).toBe('BLOB_CORRUPT');
+  await writeFile(object, bytes);
+});

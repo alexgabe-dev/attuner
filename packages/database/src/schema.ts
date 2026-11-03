@@ -585,3 +585,28 @@ export const enrollmentDecisions = sqliteTable('enrollment_decisions', {
   ciphertext: text('ciphertext').notNull(),
   expiresAt: integer('expires_at').notNull(),
 });
+export const profileBlobChunks = sqliteTable(
+  'profile_blob_chunks',
+  {
+    profileId: text('profile_id').notNull(),
+    hash: text('hash').notNull(),
+    position: integer('position').notNull(),
+    size: integer('size').notNull(),
+    chunkHash: text('chunk_hash').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.profileId, t.hash, t.position] }),
+    foreignKey({
+      columns: [t.profileId, t.hash],
+      foreignColumns: [profileBlobs.profileId, profileBlobs.hash],
+    }),
+    check(
+      'verified_chunk_bounds',
+      sql`${t.position}>=0 AND ${t.position}<256 AND ${t.size}>0 AND ${t.size}<=4194304`,
+    ),
+    check(
+      'verified_chunk_hash',
+      sql`length(${t.chunkHash})=64 AND ${t.chunkHash} NOT GLOB '*[^a-f0-9]*'`,
+    ),
+  ],
+);

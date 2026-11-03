@@ -55,6 +55,12 @@ pub enum Point {
     ScanValidated,
     BackupChunk,
     BackupVerified,
+    BackupReused,
+    BackupEncode,
+    BackupFlush,
+    BackupObjectVerify,
+    CaptureScan,
+    CaptureDatabase,
     StageChunk,
     Prepared,
     Intent,
@@ -74,6 +80,7 @@ pub struct Event {
     pub point: Point,
     pub index: usize,
     pub path: String,
+    pub elapsed_micros: Option<u64>,
 }
 type Observer = Arc<dyn Fn(&Event) -> Result<()> + Send + Sync>;
 #[derive(Clone)]
@@ -109,6 +116,29 @@ impl Control {
         Ok(())
     }
     pub(crate) fn event(&self, point: Point, index: usize, path: &str) -> Result<()> {
+        self.event_elapsed(point, index, path, None)
+    }
+    pub(crate) fn timed(
+        &self,
+        point: Point,
+        index: usize,
+        path: &str,
+        start: std::time::Instant,
+    ) -> Result<()> {
+        self.event_elapsed(
+            point,
+            index,
+            path,
+            Some(start.elapsed().as_micros().min(u64::MAX as u128) as u64),
+        )
+    }
+    fn event_elapsed(
+        &self,
+        point: Point,
+        index: usize,
+        path: &str,
+        elapsed_micros: Option<u64>,
+    ) -> Result<()> {
         self.check()?;
         tracing::trace!(?point, index, path, "local engine checkpoint");
         if let Some(observer) = &self.observer {
@@ -116,6 +146,7 @@ impl Control {
                 point,
                 index,
                 path: path.to_owned(),
+                elapsed_micros,
             })?;
         }
         self.check()
