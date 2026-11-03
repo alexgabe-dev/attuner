@@ -43,3 +43,19 @@ jobs:
       - run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - run: cargo test --workspace --locked
       - run: pnpm --filter @attuner/desktop tauri build --debug --no-bundle
+      - name: Package standalone Windows qualification
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/package-windows-qualification.ps1
+      - name: Verify standalone Windows qualification bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $attunerBundle = Get-ChildItem artifacts -Directory -Filter 'windows-qualification-*' | Select-Object -First 1
+          & (Join-Path $attunerBundle.FullName 'Qualify-Windows.ps1') -AllowServer
+      - uses: actions/upload-artifact@v4
+        if: runner.os == 'Windows'
+        with:
+          name: attuner-windows-qualification
+          path: artifacts/windows-qualification-*/
+          retention-days: 14

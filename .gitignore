@@ -13,3 +13,4 @@ test-results/
 *.tsbuildinfo
 
 apps/desktop/src-tauri/gen/
+artifacts/windows-qualification-*/
