@@ -35,3 +35,7 @@ Work is on `phase3-secure-sync`. No real installation or production deployment i
 - Actual macOS Keychain round-trip and real Rust-to-Node TLS enrollment pass. Fault injection proves no device is enrolled before pending state persists, and a token rotation response lost at secure-store persistence can be recovered after reopening.
 - Current local TypeScript suite: 58 tests passed, including concurrency, CSRF, cross-profile scopes and revocation at the protected transaction boundary. Formatting, lint, strict typechecks, all package builds, Clippy and 43 Rust tests passed (two subprocess entrypoints are intentionally ignored and invoked by parent recovery tests).
 - Tauri command wiring/browser account screens are intentionally part of M8. Windows credential execution requires the independent hosted run; filesystem application stays disabled.
+
+### M2 hosted follow-up
+
+Hosted run 41725077662 passed Linux and Windows Server 2022, including Windows Credential Manager and Rust-to-Node TLS enrollment/recovery. macOS Keychain passed, but its test certificate generation failed with OpenSSL 3.6. The isolated certificate helper now uses pinned `@peculiar/x509` with Node WebCrypto and encrypted PKCS#8 export, removing OpenSSL/CLI variability. This dependency is confined to development/test TLS generation; the normal runtime still loads externally managed TLS material. Local Node HTTPS and Rust TLS enrollment pass with the replacement. Native Windows filesystem apply and Windows 11 UI remain unqualified.
