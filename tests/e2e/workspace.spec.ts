@@ -10,6 +10,11 @@ async function navigate(page: Page, name: string) {
   )
     await openNavigation.click();
   await sidebar.getByRole('link', { name, exact: true }).click();
+  // Next navigation and metadata settle asynchronously; audit the destination.
+  await expect(
+    page.getByRole('heading', { name: name.replace(/\s+\d+$/, ''), exact: true, level: 1 }),
+  ).toBeVisible();
+  await expect(page).toHaveTitle(/Attuner/);
 }
 test('all views navigate, keep the fixture label and fit the viewport', async ({ page }) => {
   const errors: string[] = [];
