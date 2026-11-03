@@ -18,6 +18,7 @@ const MARKER: &str = "attuner-synthetic-workspace-v1\n";
 pub struct Workspace {
     pub(crate) home: PathBuf,
     pub(crate) dir: Dir,
+    pub(crate) registry: Option<crate::registry::RegistryIdentity>,
 }
 impl Workspace {
     #[cfg(unix)]
@@ -41,6 +42,7 @@ impl Workspace {
         Ok(Self {
             home: path.canonicalize()?,
             dir,
+            registry: None,
         })
     }
     #[cfg(not(unix))]
@@ -70,6 +72,7 @@ impl Workspace {
         Ok(Self {
             home: path.to_owned(),
             dir,
+            registry: None,
         })
     }
     pub fn path(&self) -> &Path {
@@ -79,7 +82,16 @@ impl Workspace {
         open_dir(&self.dir, path, false)
     }
     pub(crate) fn validate(&self) -> Result<()> {
-        let other = Self::reopen(&self.home)?;
+        let other = match &self.registry {
+            Some(registry) => crate::registry::reopen_workspace(
+                registry,
+                self.home
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .ok_or(Error::Adapter)?,
+            )?,
+            None => Self::reopen(&self.home)?,
+        };
         let a = self.dir.dir_metadata()?;
         let b = other.dir.dir_metadata()?;
         if (a.dev(), a.ino()) != (b.dev(), b.ino()) {

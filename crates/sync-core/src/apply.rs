@@ -13,6 +13,15 @@ impl Engine {
         expected: &CompleteScan,
         control: &Control,
     ) -> Result<i64> {
+        self.apply_snapshot_inner(target_id, expected, None, control)
+    }
+    pub(crate) fn apply_snapshot_inner(
+        &mut self,
+        target_id: i64,
+        expected: &CompleteScan,
+        sync_job: Option<&str>,
+        control: &Control,
+    ) -> Result<i64> {
         control.check()?;
         let _lock = self.workspace.lock()?;
         self.ensure_idle()?;
@@ -20,6 +29,27 @@ impl Engine {
         let target = self.store.snapshot(target_id)?;
         if target.coverage != expected.coverage {
             return Err(Error::Coverage);
+        }
+        if let Some(job_id) = sync_job {
+            let job = crate::synchronization::load_job(&self.store.connection, job_id)?;
+            if job.state != crate::synchronization::JobState::RemoteCommitted
+                || job.data.target_snapshot != Some(target_id)
+                || job.data.approval_digest.as_deref()
+                    != Some(crate::synchronization::review_digest(&self.store, &job)?.as_str())
+                || job
+                    .data
+                    .published_head
+                    .as_ref()
+                    .and_then(|h| h.manifest_hash.as_deref())
+                    != Some(crate::remote::digest(&target.manifest)?.as_str())
+                || self
+                    .store
+                    .snapshot(job.data.local_snapshot.ok_or(Error::Coverage)?)?
+                    .manifest
+                    != expected.manifest
+            {
+                return Err(Error::Coverage);
+            }
         }
         let actual = scan::scan(&self.workspace, &self.adapter, control, &self.limits)?;
         if actual.manifest != expected.manifest {
@@ -94,7 +124,7 @@ impl Engine {
         }
         control.check()?;
         sync_dir(&self.workspace.internal("state/objects")?)?;
-        let id = self.store.prepare(target_id, expected, &steps)?;
+        let id = self.store.prepare(target_id, expected, &steps, sync_job)?;
         let result = (|| {
             control.event(Point::Prepared, 0, "")?;
             self.store.state(id, "applying", None)?;

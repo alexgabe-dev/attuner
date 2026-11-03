@@ -10,6 +10,8 @@ pub const PROFILE_ID: &str = "11111111-1111-4111-8111-111111111111";
 pub struct Adapter {
     pub kind: String,
     pub version: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    profile_id: Option<String>,
 }
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct RootMapping {
@@ -21,12 +23,38 @@ impl Adapter {
         Self {
             kind: "attuner-synthetic".into(),
             version,
+            profile_id: None,
         }
+    }
+    pub fn bound_fixture(version: u32, profile: &str) -> Result<Self> {
+        let test = crate::Manifest {
+            protocol_version: 1,
+            profile_id: profile.into(),
+            policy_version: 1,
+            files: vec![],
+        };
+        test.validate().map_err(|_| Error::Coverage)?;
+        Ok(Self {
+            kind: "attuner-synthetic".into(),
+            version,
+            profile_id: Some(profile.into()),
+        })
+    }
+    pub fn profile_id(&self) -> &str {
+        self.profile_id.as_deref().unwrap_or(PROFILE_ID)
     }
     pub fn roots(&self) -> Result<Vec<RootMapping>> {
         if self.kind != "attuner-synthetic" {
             return Err(Error::Adapter);
         }
+        crate::Manifest {
+            protocol_version: 1,
+            profile_id: self.profile_id().into(),
+            policy_version: 1,
+            files: vec![],
+        }
+        .validate()
+        .map_err(|_| Error::Adapter)?;
         let dirs = match self.version {
             1 => ["ProfileData", "Extensions"],
             2 => ["Configuration", "Modules"],

@@ -12,7 +12,11 @@ export type Response = {
   bytes: Buffer;
 };
 export async function secureHarness(
-  options: { blobDirectory?: string; databaseFilename?: string } = {},
+  options: {
+    blobDirectory?: string;
+    databaseFilename?: string;
+    transformResponse?: (path: string, payload: string | Buffer | null) => string | Buffer | null;
+  } = {},
 ) {
   const tls = await tlsFixture(),
     db = await DatabaseWorker.open(options.databaseFilename);
@@ -23,6 +27,12 @@ export async function secureHarness(
     deliveryKey: randomBytes(32),
     now: () => clock,
   });
+  if (options.transformResponse)
+    app.addHook('onSend', async (request, _reply, payload) => {
+      if (typeof payload === 'string' || Buffer.isBuffer(payload) || payload === null)
+        return options.transformResponse!(request.url, payload);
+      return payload;
+    });
   await app.listen({ host: '127.0.0.1', port: 0 });
   const address = app.server.address();
   if (!address || typeof address === 'string') throw new Error('No listener');

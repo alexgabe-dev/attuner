@@ -173,7 +173,21 @@ impl DeviceClient {
         output: &mut (impl Read + Write + Seek),
         offset: u64,
         control: &Control,
+        progress: impl FnMut(TransferProgress),
+    ) -> Result<()> {
+        self.download_blob_durable(blob, output, offset, control, progress, |output, _, _| {
+            output.flush()?;
+            Ok(())
+        })
+    }
+    pub fn download_blob_durable<O: Read + Write + Seek>(
+        &mut self,
+        blob: BlobIdentity<'_>,
+        output: &mut O,
+        offset: u64,
+        control: &Control,
         mut progress: impl FnMut(TransferProgress),
+        mut checkpoint: impl FnMut(&mut O, u64, &str) -> Result<()>,
     ) -> Result<()> {
         let BlobIdentity {
             profile_id: profile,
@@ -224,6 +238,11 @@ impl DeviceClient {
             digest.update(&wire.bytes);
             output.write_all(&wire.bytes)?;
             completed += length;
+            checkpoint(
+                output,
+                completed,
+                digest.clone().finalize().to_hex().as_str(),
+            )?;
             progress(TransferProgress {
                 completed_bytes: completed,
                 total_bytes: size,

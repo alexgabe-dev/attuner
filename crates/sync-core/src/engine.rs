@@ -11,13 +11,26 @@ pub struct Engine {
 }
 impl Engine {
     pub fn create_fixture(version: u32, control: &Control) -> Result<Self> {
+        Self::create_with_adapter(Adapter::fixture(version), control)
+    }
+    pub fn create_bound_fixture(version: u32, profile: &str, control: &Control) -> Result<Self> {
+        Self::create_with_adapter(Adapter::bound_fixture(version, profile)?, control)
+    }
+    fn create_with_adapter(adapter: Adapter, control: &Control) -> Result<Self> {
         control.check()?;
         let workspace = Workspace::create()?;
-        let adapter = Adapter::fixture(version);
+        Self::from_new_workspace(workspace, adapter, control)
+    }
+    pub(crate) fn from_new_workspace(
+        workspace: Workspace,
+        adapter: Adapter,
+        control: &Control,
+    ) -> Result<Self> {
+        control.check()?;
         adapter.seed(&workspace)?;
         let store = Store::open(&workspace, &adapter)?;
         tracing::info!(
-            adapter_version = version,
+            adapter_version = adapter.version,
             "created isolated synthetic workspace"
         );
         Ok(Self {
@@ -30,6 +43,10 @@ impl Engine {
     pub fn reopen(path: &Path, control: &Control) -> Result<Self> {
         control.check()?;
         let workspace = Workspace::reopen(path)?;
+        Self::from_reopened_workspace(workspace, control)
+    }
+    pub(crate) fn from_reopened_workspace(workspace: Workspace, control: &Control) -> Result<Self> {
+        control.check()?;
         let _lock = workspace.lock()?;
         let adapter = Adapter::discover(&workspace, control)?;
         let store = Store::open(&workspace, &adapter)?;
@@ -184,5 +201,165 @@ impl Engine {
     pub fn recover(&mut self, _id: i64, control: &Control) -> Result<()> {
         control.check()?;
         Err(Error::Platform)
+    }
+}
+impl Engine {
+    /// Export original bytes from an immutable verified backup, never from a remote path.
+    pub fn export_snapshot_blob(
+        &self,
+        snapshot_id: i64,
+        hash: &str,
+        destination: &mut impl std::io::Write,
+        control: &Control,
+    ) -> Result<u64> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        let snapshot = self.store.snapshot(snapshot_id)?;
+        let entry = snapshot
+            .manifest
+            .files
+            .iter()
+            .find(|f| f.hash == hash)
+            .ok_or(Error::NotFound)?;
+        backup::decode(
+            &self.workspace.internal("state/objects")?,
+            &format!("{}.zst", entry.hash),
+            entry,
+            Some(destination),
+            control,
+            &self.limits,
+        )
+    }
+    /// Validated remote identity and original bytes only. Does not touch the managed tree.
+    pub fn import_blob(
+        &mut self,
+        entry: &crate::ManifestFile,
+        source: impl std::io::Read,
+        control: &Control,
+    ) -> Result<()> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        let roots = self
+            .adapter
+            .roots()?
+            .into_iter()
+            .map(|r| r.logical)
+            .collect::<Vec<_>>();
+        let manifest = Manifest {
+            protocol_version: 1,
+            profile_id: self.adapter.profile_id().into(),
+            policy_version: 1,
+            files: vec![entry.clone()],
+        };
+        crate::remote::validate(&manifest, self.adapter.profile_id(), &roots, 1)?;
+        self.check_space(
+            entry
+                .size
+                .checked_mul(2)
+                .and_then(|s| s.checked_add(self.limits.disk_reserve))
+                .ok_or_else(|| Error::Limit("remote backup space".into()))?,
+            control,
+        )?;
+        backup::put(&self.workspace, source, entry, control, &self.limits)?;
+        crate::workspace::sync_dir(&self.workspace.internal("state/objects")?)?;
+        Ok(())
+    }
+    pub fn has_verified_blob(
+        &self,
+        entry: &crate::ManifestFile,
+        control: &Control,
+    ) -> Result<bool> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        if entry.hash.len() != 64
+            || !entry
+                .hash
+                .bytes()
+                .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        {
+            return Err(Error::Integrity("blob identity".into()));
+        }
+        match backup::verify(&self.workspace, entry, control, &self.limits) {
+            Ok(()) => Ok(true),
+            Err(Error::Io(e)) if e.kind() == std::io::ErrorKind::NotFound => Ok(false),
+            Err(e) => Err(e),
+        }
+    }
+    pub fn record_verified_remote_snapshot(
+        &mut self,
+        manifest: &Manifest,
+        label: &str,
+        control: &Control,
+    ) -> Result<Snapshot> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        let coverage = crate::Coverage {
+            adapter_version: self.adapter.version,
+            roots: self
+                .adapter
+                .roots()?
+                .into_iter()
+                .map(|r| r.logical)
+                .collect(),
+        };
+        crate::remote::validate(manifest, self.adapter.profile_id(), &coverage.roots, 1)?;
+        for entry in &manifest.files {
+            backup::verify(&self.workspace, entry, control, &self.limits)?;
+        }
+        let mut canonical = manifest.clone();
+        canonical
+            .files
+            .sort_by(|a, b| (&a.root, &a.path).cmp(&(&b.root, &b.path)));
+        self.store
+            .insert_snapshot(&canonical, &coverage, label, false)
+    }
+}
+impl Engine {
+    /// Historical review of a completed immutable capture. A fresh complete scan is
+    /// still required at publication and local apply; this method performs no writes.
+    pub fn compare_captured(
+        &self,
+        local_id: i64,
+        baseline: &Manifest,
+        remote: &Manifest,
+        control: &Control,
+    ) -> Result<compare::Merge> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        let snapshot = self.store.snapshot(local_id)?;
+        let receipt = CompleteScan {
+            files: snapshot.manifest.files.len(),
+            bytes: snapshot.manifest.files.iter().map(|f| f.size).sum(),
+            manifest: snapshot.manifest,
+            coverage: snapshot.coverage,
+            workspace: self.path().to_string_lossy().into(),
+        };
+        compare::three_way(baseline, &receipt, remote)
+    }
+    pub fn resolve_captured(
+        &self,
+        local_id: i64,
+        baseline: &Manifest,
+        remote: &Manifest,
+        decisions: &[crate::synchronization::Decision],
+        control: &Control,
+    ) -> Result<Manifest> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.ensure_idle()?;
+        let snapshot = self.store.snapshot(local_id)?;
+        let receipt = CompleteScan {
+            files: snapshot.manifest.files.len(),
+            bytes: snapshot.manifest.files.iter().map(|f| f.size).sum(),
+            manifest: snapshot.manifest,
+            coverage: snapshot.coverage,
+            workspace: self.path().to_string_lossy().into(),
+        };
+        compare::resolve_three_way(baseline, &receipt, remote, decisions)
     }
 }

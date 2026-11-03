@@ -185,6 +185,13 @@ export function syncRoutes(app: FastifyInstance, security: Security, storage: Bl
     const { profileId, sessionId } = jobParams(request),
       s = await session(profileId, sessionId, request.syncDevice!);
     return {
+      result:
+        (
+          await security.db.query(
+            'SELECT p.id AS snapshotId,p.revision,p.manifest_hash AS manifestHash FROM publication_details d JOIN snapshots p ON p.id=d.committed_snapshot_id WHERE d.session_id=?',
+            [s.id],
+          )
+        )[0] ?? null,
       sessionId: s.id,
       state: s.state,
       expiresAt: s.expires_at,

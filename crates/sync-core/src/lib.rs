@@ -26,3 +26,11 @@ mod recovery;
 pub use apply::write_synthetic_file;
 pub mod namespace;
 pub mod remote;
+
+pub mod synchronization;
+
+mod transfer_stage;
+pub use transfer_stage::DownloadStage;
+
+mod registry;
+pub use registry::{FixtureRegistry, RegisteredFixture};

@@ -1,6 +1,5 @@
 use crate::{
     Adapter, Control, Error, Limits, Manifest, ManifestFile, Point, Result, Workspace,
-    adapter::PROFILE_ID,
     workspace::{check_meta, open_dir, open_file, parent},
 };
 use cap_fs_ext::MetadataExt;
@@ -171,7 +170,7 @@ pub(crate) fn scan(
     let before = all_entries(workspace, adapter, control, limits)?;
     let mut manifest = Manifest {
         protocol_version: 1,
-        profile_id: PROFILE_ID.into(),
+        profile_id: adapter.profile_id().into(),
         policy_version: 1,
         files: Vec::new(),
     };

@@ -386,3 +386,501 @@ fn three_native_devices_publish_immutable_heads_with_one_cas_winner() {
     assert_eq!(snapshot.head(), policy.head);
     observer.acknowledge(&profile, &policy.head).unwrap();
 }
+#[cfg(unix)]
+#[test]
+fn coordinator_persists_offline_capture_requires_review_and_never_auto_applies() {
+    use attuner_sync_client::{BootstrapChoice, Coordinator};
+    use attuner_sync_core::{
+        Control, Engine,
+        synchronization::{Binding, JobState},
+    };
+    let mut fixture = Fixture::with_blobs(true);
+    let connection = fixture.connection();
+    let server = connection.info.server_id.clone();
+    let mut client = DeviceClient::open(connection, Arc::new(Memory::default())).unwrap();
+    let enrollment = client
+        .begin_enrollment("Coordinator fixture", "macos", "0.1.0")
+        .unwrap();
+    let approval =
+        fixture.command(json!({"kind":"approve","enrollmentId":enrollment.enrollment_id}));
+    client
+        .accept_callback(approval["redirectUri"].as_str().unwrap())
+        .unwrap();
+    let control = Control::fixture();
+    let mut engine = Engine::create_bound_fixture(1, &fixture.profile_id, &control).unwrap();
+    engine
+        .bind_remote(
+            &Binding {
+                server_id: server,
+                origin: fixture.origin.clone(),
+                profile_id: fixture.profile_id.clone(),
+                policy_version: 1,
+                roots: vec!["account".into(), "addons".into()],
+            },
+            &control,
+        )
+        .unwrap();
+    assert_eq!(fixture.command(json!({"kind":"pause"}))["paused"], true);
+    assert!(
+        Coordinator::new(&mut engine, &mut client, &control)
+            .unwrap()
+            .prepare()
+            .is_err()
+    );
+    let offline = engine.sync_jobs(&control).unwrap().remove(0);
+    assert_eq!(offline.state, JobState::Offline);
+    assert!(offline.data.local_snapshot.is_some());
+    let path = engine.path().to_owned();
+    drop(engine);
+    let mut engine = Engine::reopen(&path, &control).unwrap();
+    assert_eq!(fixture.command(json!({"kind":"resume"}))["resumed"], true);
+    let mut coordinator = Coordinator::new(&mut engine, &mut client, &control).unwrap();
+    let review = coordinator.resume_comparison(&offline.data.id).unwrap();
+    assert_eq!(review.state, JobState::BootstrapReview);
+    let selected = coordinator
+        .choose_bootstrap(&review.data.id, BootstrapChoice::Local)
+        .unwrap();
+    let digest = coordinator.approval_digest(&selected.data.id).unwrap();
+    drop(coordinator);
+    let edited = path.join("installation/ProfileData/SavedVariables/bindings.txt");
+    std::fs::write(&edited, b"offline and concurrent synthetic edit").unwrap();
+    assert!(matches!(
+        Coordinator::new(&mut engine, &mut client, &control)
+            .unwrap()
+            .publish_approved(&selected.data.id, &digest, |_, _| {}),
+        Err(Error::StaleReview)
+    ));
+    assert_eq!(
+        client
+            .fetch_head(&fixture.profile_id)
+            .unwrap()
+            .head
+            .revision,
+        0
+    );
+    assert!(engine.remote_baseline(&control).unwrap().is_none());
+    let mut coordinator = Coordinator::new(&mut engine, &mut client, &control).unwrap();
+    let next = coordinator.prepare().unwrap();
+    coordinator
+        .choose_bootstrap(&next.data.id, BootstrapChoice::Local)
+        .unwrap();
+    let digest = coordinator.approval_digest(&next.data.id).unwrap();
+    let published = coordinator
+        .publish_approved(&next.data.id, &digest, |_, _| {})
+        .unwrap();
+    assert_eq!(published.state, JobState::RemoteCommitted);
+    drop(coordinator);
+    assert!(engine.remote_baseline(&control).unwrap().is_none());
+    assert_eq!(
+        std::fs::read(&edited).unwrap(),
+        b"offline and concurrent synthetic edit"
+    );
+    let id = published.data.id;
+    drop(engine);
+    let mut engine = Engine::reopen(&path, &control).unwrap();
+    assert_eq!(
+        engine.sync_job(&id, &control).unwrap().state,
+        JobState::RemoteCommitted
+    );
+    let applied = Coordinator::new(&mut engine, &mut client, &control)
+        .unwrap()
+        .apply_approved(&id, &digest, |_, _| {})
+        .unwrap();
+    assert_eq!(applied.state, JobState::AcknowledgementPending);
+    assert_eq!(engine.pending_acknowledgements(&control).unwrap().len(), 1);
+    assert_eq!(
+        engine
+            .remote_baseline(&control)
+            .unwrap()
+            .unwrap()
+            .head
+            .revision,
+        1
+    );
+    assert_eq!(fixture.command(json!({"kind":"pause"}))["paused"], true);
+    assert!(
+        Coordinator::new(&mut engine, &mut client, &control)
+            .unwrap()
+            .acknowledge_pending()
+            .is_err()
+    );
+    drop(engine);
+    let mut engine = Engine::reopen(&path, &control).unwrap();
+    assert_eq!(engine.pending_acknowledgements(&control).unwrap().len(), 1);
+    assert_eq!(fixture.command(json!({"kind":"resume"}))["resumed"], true);
+    assert_eq!(
+        Coordinator::new(&mut engine, &mut client, &control)
+            .unwrap()
+            .acknowledge_pending()
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        engine.sync_job(&id, &control).unwrap().state,
+        JobState::Complete
+    );
+    assert!(
+        engine
+            .pending_acknowledgements(&control)
+            .unwrap()
+            .is_empty()
+    );
+    drop(engine);
+    std::fs::remove_dir_all(path).unwrap();
+}
+#[cfg(unix)]
+impl Fixture {
+    fn enrolled_client(&mut self, name: &str) -> DeviceClient {
+        let mut client =
+            DeviceClient::open(self.connection(), Arc::new(Memory::default())).unwrap();
+        let enrollment = client.begin_enrollment(name, "macos", "0.1.0").unwrap();
+        let approval =
+            self.command(json!({"kind":"approve","enrollmentId":enrollment.enrollment_id}));
+        client
+            .accept_callback(approval["redirectUri"].as_str().unwrap())
+            .unwrap();
+        client
+    }
+    fn bound_engine(&self) -> attuner_sync_core::Engine {
+        use attuner_sync_core::{Control, Engine, synchronization::Binding};
+        let mut engine =
+            Engine::create_bound_fixture(1, &self.profile_id, &Control::fixture()).unwrap();
+        engine
+            .bind_remote(
+                &Binding {
+                    server_id: self.connection().info.server_id,
+                    origin: self.origin.clone(),
+                    profile_id: self.profile_id.clone(),
+                    policy_version: 1,
+                    roots: vec!["account".into(), "addons".into()],
+                },
+                &Control::fixture(),
+            )
+            .unwrap();
+        engine
+    }
+}
+#[cfg(unix)]
+fn explicit_sync(
+    engine: &mut attuner_sync_core::Engine,
+    client: &mut DeviceClient,
+    bootstrap: attuner_sync_client::BootstrapChoice,
+) {
+    use attuner_sync_client::Coordinator;
+    use attuner_sync_core::{Control, synchronization::JobState};
+    let control = Control::fixture();
+    let mut coordinator = Coordinator::new(engine, client, &control).unwrap();
+    let job = coordinator.prepare().unwrap();
+    if job.state == JobState::BootstrapReview {
+        coordinator
+            .choose_bootstrap(&job.data.id, bootstrap)
+            .unwrap();
+    } else {
+        assert_eq!(job.state, JobState::AwaitingApproval);
+    }
+    let digest = coordinator.approval_digest(&job.data.id).unwrap();
+    coordinator
+        .publish_approved(&job.data.id, &digest, |_, _| {})
+        .unwrap();
+    coordinator
+        .apply_approved(&job.data.id, &digest, |_, _| {})
+        .unwrap();
+    assert_eq!(coordinator.acknowledge_pending().unwrap(), 1);
+}
+#[cfg(unix)]
+#[test]
+fn three_isolated_engines_reconcile_conflicts_offline_edits_corruption_and_failed_apply() {
+    use attuner_sync_client::{BootstrapChoice, Coordinator};
+    use attuner_sync_core::{
+        Control, Point,
+        synchronization::{Choice, Decision, JobState},
+    };
+    let mut fixture = Fixture::with_blobs(true);
+    let mut a = fixture.enrolled_client("North synthetic desktop");
+    let mut b = fixture.enrolled_client("West synthetic desktop");
+    let mut c = fixture.enrolled_client("East synthetic desktop");
+    let mut ea = fixture.bound_engine();
+    let mut eb = fixture.bound_engine();
+    let mut ec = fixture.bound_engine();
+    let control = Control::fixture();
+    explicit_sync(&mut ea, &mut a, BootstrapChoice::Local);
+    explicit_sync(&mut eb, &mut b, BootstrapChoice::Remote);
+    explicit_sync(&mut ec, &mut c, BootstrapChoice::Remote);
+    let ap = ea.path().to_owned();
+    let bp = eb.path().to_owned();
+    let cp = ec.path().to_owned();
+    let weak = "installation/ProfileData/SavedVariables/WeakAuras.lua";
+    let bindings = "installation/ProfileData/SavedVariables/bindings.txt";
+    std::fs::write(ap.join(weak), b"North concurrent original bytes\r\n").unwrap();
+    std::fs::write(bp.join(weak), b"West concurrent original bytes\r\n").unwrap();
+    std::fs::remove_file(cp.join(weak)).unwrap();
+    let mut ca = Coordinator::new(&mut ea, &mut a, &control).unwrap();
+    let ja = ca.prepare().unwrap();
+    let da = ca.approval_digest(&ja.data.id).unwrap();
+    drop(ca);
+    let mut cb = Coordinator::new(&mut eb, &mut b, &control).unwrap();
+    let jb = cb.prepare().unwrap();
+    let db = cb.approval_digest(&jb.data.id).unwrap();
+    drop(cb);
+    let mut ca = Coordinator::new(&mut ea, &mut a, &control).unwrap();
+    ca.publish_approved(&ja.data.id, &da, |_, _| {}).unwrap();
+    ca.apply_approved(&ja.data.id, &da, |_, _| {}).unwrap();
+    ca.acknowledge_pending().unwrap();
+    drop(ca);
+    assert!(matches!(
+        Coordinator::new(&mut eb, &mut b, &control)
+            .unwrap()
+            .publish_approved(&jb.data.id, &db, |_, _| {}),
+        Err(Error::HeadMoved)
+    ));
+    let mut cb = Coordinator::new(&mut eb, &mut b, &control).unwrap();
+    let conflict = cb.prepare().unwrap();
+    assert_eq!(conflict.state, JobState::ConflictReview);
+    let conflicts = cb.conflicts(&conflict.data.id).unwrap();
+    assert_eq!(conflicts.len(), 1);
+    assert_eq!(conflicts[0].change.path, "SavedVariables/WeakAuras.lua");
+    assert!(
+        conflicts[0].change.before.is_some()
+            && conflicts[0].change.after.is_some()
+            && conflicts[0].remote.is_some()
+    );
+    cb.resolve(
+        &conflict.data.id,
+        vec![Decision {
+            root: "account".into(),
+            path: "SavedVariables/WeakAuras.lua".into(),
+            choice: Choice::Local,
+        }],
+    )
+    .unwrap();
+    let digest = cb.approval_digest(&conflict.data.id).unwrap();
+    cb.publish_approved(&conflict.data.id, &digest, |_, _| {})
+        .unwrap();
+    cb.apply_approved(&conflict.data.id, &digest, |_, _| {})
+        .unwrap();
+    cb.acknowledge_pending().unwrap();
+    drop(cb);
+    let mut cc = Coordinator::new(&mut ec, &mut c, &control).unwrap();
+    let conflict = cc.prepare().unwrap();
+    assert_eq!(conflict.state, JobState::ConflictReview);
+    let conflicts = cc.conflicts(&conflict.data.id).unwrap();
+    assert!(conflicts[0].change.after.is_none() && conflicts[0].remote.is_some());
+    cc.resolve(
+        &conflict.data.id,
+        vec![Decision {
+            root: "account".into(),
+            path: "SavedVariables/WeakAuras.lua".into(),
+            choice: Choice::Remote,
+        }],
+    )
+    .unwrap();
+    let digest = cc.approval_digest(&conflict.data.id).unwrap();
+    cc.publish_approved(&conflict.data.id, &digest, |_, _| {})
+        .unwrap();
+    cc.apply_approved(&conflict.data.id, &digest, |_, _| {})
+        .unwrap();
+    cc.acknowledge_pending().unwrap();
+    drop(cc);
+    assert_eq!(
+        std::fs::read(cp.join(weak)).unwrap(),
+        b"West concurrent original bytes\r\n"
+    );
+    std::fs::write(cp.join(bindings), b"East offline original bytes\r\n").unwrap();
+    fixture.command(json!({"kind":"pause"}));
+    assert!(
+        Coordinator::new(&mut ec, &mut c, &control)
+            .unwrap()
+            .prepare()
+            .is_err()
+    );
+    let offline = ec
+        .sync_jobs(&control)
+        .unwrap()
+        .into_iter()
+        .find(|j| j.state == JobState::Offline)
+        .unwrap();
+    fixture.command(json!({"kind":"resume"}));
+    let mut cc = Coordinator::new(&mut ec, &mut c, &control).unwrap();
+    assert_eq!(
+        cc.resume_comparison(&offline.data.id).unwrap().state,
+        JobState::AwaitingApproval
+    );
+    let digest = cc.approval_digest(&offline.data.id).unwrap();
+    cc.publish_approved(&offline.data.id, &digest, |_, _| {})
+        .unwrap();
+    cc.apply_approved(&offline.data.id, &digest, |_, _| {})
+        .unwrap();
+    cc.acknowledge_pending().unwrap();
+    drop(cc);
+    // A server publication does not advance A's local baseline if application rolls back.
+    let prior = ea.remote_baseline(&control).unwrap().unwrap().head;
+    let failing = control.clone().with_observer(|event| {
+        if event.point == Point::BeforeCommit {
+            Err(attuner_sync_core::Error::Integrity(
+                "synthetic interrupted application".into(),
+            ))
+        } else {
+            Ok(())
+        }
+    });
+    let mut ca = Coordinator::new(&mut ea, &mut a, &failing).unwrap();
+    let job = ca.prepare().unwrap();
+    let digest = ca.approval_digest(&job.data.id).unwrap();
+    ca.publish_approved(&job.data.id, &digest, |_, _| {})
+        .unwrap();
+    let result = ca.apply_approved(&job.data.id, &digest, |_, _| {});
+    let operation = match result {
+        Err(Error::Engine(attuner_sync_core::Error::RecoveryRequired { operation, .. })) => {
+            operation
+        }
+        other => panic!(
+            "Expected recovery requirement, got {}",
+            if other.is_ok() {
+                "success"
+            } else {
+                "another error"
+            }
+        ),
+    };
+    drop(ca);
+    assert!(ea.pending_acknowledgements(&control).unwrap().is_empty());
+    assert_eq!(ea.remote_baseline(&control).unwrap().unwrap().head, prior);
+    ea.recover(operation, &control).unwrap();
+    assert_eq!(
+        ea.sync_job(&job.data.id, &control).unwrap().state,
+        JobState::Failed
+    );
+    assert_eq!(
+        std::fs::read(ap.join(weak)).unwrap(),
+        b"North concurrent original bytes\r\n"
+    );
+    // Malicious wire bytes retain a correct ETag/length but cannot enter the verified local CAS.
+    let policy = b.fetch_head(&fixture.profile_id).unwrap();
+    let remote = b
+        .fetch_snapshot(&fixture.profile_id, &policy)
+        .unwrap()
+        .unwrap();
+    let incoming = remote
+        .manifest
+        .files
+        .iter()
+        .find(|f| f.path == "SavedVariables/bindings.txt")
+        .unwrap()
+        .clone();
+    let old_bindings = std::fs::read(bp.join(bindings)).unwrap();
+    let mut cb = Coordinator::new(&mut eb, &mut b, &control).unwrap();
+    let job = cb.prepare().unwrap();
+    let digest = cb.approval_digest(&job.data.id).unwrap();
+    cb.publish_approved(&job.data.id, &digest, |_, _| {})
+        .unwrap();
+    drop(cb);
+    fixture.command(json!({"kind":"corruptWire","hash":incoming.hash}));
+    assert!(
+        Coordinator::new(&mut eb, &mut b, &control)
+            .unwrap()
+            .apply_approved(&job.data.id, &digest, |_, _| {})
+            .is_err()
+    );
+    assert_eq!(std::fs::read(bp.join(bindings)).unwrap(), old_bindings);
+    assert!(!eb.has_verified_blob(&incoming, &control).unwrap());
+    fixture.command(json!({"kind":"corruptWire"}));
+    eb.restart_download(&incoming, &control).unwrap();
+    explicit_sync(&mut eb, &mut b, BootstrapChoice::Remote);
+    assert_eq!(
+        std::fs::read(bp.join(bindings)).unwrap(),
+        b"East offline original bytes\r\n"
+    );
+    let local_before_revocation = ec.scan(&control).unwrap().manifest().clone();
+    assert_eq!(
+        fixture.command(json!({"kind":"revoke","deviceId":c.status().device_id}))["status"],
+        200
+    );
+    assert!(matches!(
+        Coordinator::new(&mut ec, &mut c, &control)
+            .unwrap()
+            .prepare(),
+        Err(Error::Authentication)
+    ));
+    assert_eq!(
+        ec.scan(&control).unwrap().manifest(),
+        &local_before_revocation
+    );
+    assert_eq!(b.fetch_head(&fixture.profile_id).unwrap().head.revision, 4);
+    drop(ea);
+    drop(eb);
+    drop(ec);
+    for path in [ap, bp, cp] {
+        std::fs::remove_dir_all(path).unwrap();
+    }
+}
+#[cfg(unix)]
+#[test]
+fn lost_publication_response_recovers_original_fact_without_applying_over_new_edits() {
+    use attuner_sync_client::{BootstrapChoice, Coordinator};
+    use attuner_sync_core::{Control, Engine, synchronization::JobState};
+    let mut fixture = Fixture::with_blobs(true);
+    let mut client = fixture.enrolled_client("Lost response fixture");
+    let mut engine = fixture.bound_engine();
+    let control = Control::fixture();
+    let mut coordinator = Coordinator::new(&mut engine, &mut client, &control).unwrap();
+    let job = coordinator.prepare().unwrap();
+    coordinator
+        .choose_bootstrap(&job.data.id, BootstrapChoice::Local)
+        .unwrap();
+    let digest = coordinator.approval_digest(&job.data.id).unwrap();
+    drop(coordinator);
+    assert_eq!(
+        fixture.command(json!({"kind":"loseCommitReply"}))["armed"],
+        true
+    );
+    assert!(
+        Coordinator::new(&mut engine, &mut client, &control)
+            .unwrap()
+            .publish_approved(&job.data.id, &digest, |_, _| {})
+            .is_err()
+    );
+    let offline = engine.sync_job(&job.data.id, &control).unwrap();
+    assert_eq!(offline.state, JobState::Offline);
+    assert_eq!(offline.data.resume_state, Some(JobState::Publishing));
+    let path = engine.path().to_owned();
+    drop(engine);
+    let mut engine = Engine::reopen(&path, &control).unwrap();
+    let edited = path.join("installation/ProfileData/SavedVariables/bindings.txt");
+    std::fs::write(
+        &edited,
+        b"new unrelated edit after publication response loss",
+    )
+    .unwrap();
+    let mut coordinator = Coordinator::new(&mut engine, &mut client, &control).unwrap();
+    let recovered = coordinator
+        .publish_approved(&job.data.id, &digest, |_, _| {})
+        .unwrap();
+    assert_eq!(recovered.state, JobState::RemoteCommitted);
+    assert_eq!(recovered.data.published_head.unwrap().revision, 1);
+    assert!(matches!(
+        coordinator.apply_approved(&job.data.id, &digest, |_, _| {}),
+        Err(Error::StaleReview)
+    ));
+    drop(coordinator);
+    assert_eq!(
+        std::fs::read(edited).unwrap(),
+        b"new unrelated edit after publication response loss"
+    );
+    assert!(engine.remote_baseline(&control).unwrap().is_none());
+    assert!(
+        engine
+            .pending_acknowledgements(&control)
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        engine
+            .observe_remote(
+                &attuner_sync_core::synchronization::RemoteHead::empty(),
+                &control
+            )
+            .is_err()
+    );
+    drop(engine);
+    std::fs::remove_dir_all(path).unwrap();
+}

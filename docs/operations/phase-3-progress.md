@@ -57,3 +57,16 @@ Hosted run 41725077662 passed Linux and Windows Server 2022, including Windows C
 - Typed Rust publication client validates head envelopes, snapshot identity, complete canonical digest, namespace, policy/roots and expected publication revision. No remote path reaches filesystem operations.
 - Verification: 67 TypeScript tests and 45 Rust tests passed; formatting/lint/typechecks/builds/Clippy passed. Three actual Rust HTTPS clients independently enroll: two race from one head, one wins, one gets HEAD_MOVED, and the third verifies and acknowledges the immutable winner. Audit-failure injection rolls snapshot/seal/head/result back together with no revision hole. Existing local crash/recovery matrix still passes.
 - Windows-native NTFS/reparse/sharing probes were committed early and submitted to hosted CI; Windows application remains gated pending results and durability qualification.
+
+## M5/M6 — foreground coordination and verified local application
+
+The two milestones share the local commit boundary and were verified together before enabling any host apply command.
+
+- Added local SQLite migration 0002: immutable binding, highest observed revision, separate remote baseline, optimistic-generation jobs, application links and durable acknowledgement outbox. Existing Phase 2 snapshots remain unchanged.
+- Added persistent app-owned synthetic registry with UUID-only reopening, private permissions, pinned root identity, catalogue digest, marker/no-follow checks and no automatic adoption/deletion.
+- Added foreground preparation/resume, bootstrap and group-safe conflict choices, review digests, stale-local/head checks, verified incremental transfer, lost-publication-result recovery and explicit separate local apply. No Lua merge or automatic synchronization.
+- Added raw download stages with durable prefix receipts, corruption quarantine/restart, verified compressed CAS import and deterministic imported snapshot order. The local apply/baseline/outbox transaction preserves Phase 2 recovery guarantees.
+- Three real HTTPS Rust engines exercise concurrent modifications, stale publication, modification/deletion review, offline edits/reconnect, revocation, adversarial wire bytes and rollback after failed application. The lost-response case proves later unrelated local edits remain untouched.
+- Added sixteen process-exit/SIGKILL cases across eight apply boundaries, checking atomic B/outbox state and original-byte recovery. Existing recovery tests remain enabled.
+- Local validation: 59 Rust tests passed, three intentionally ignored child entrypoints invoked by parent crash tests; 67 TypeScript tests passed. Formatting, lint, strict typechecks, package builds and workspace Clippy passed. Windows execution of these additions is submitted with the milestone commit; Windows filesystem apply is still disabled.
+- Windows Server 2022 run 41727481100 independently passed NTFS/no-clobber/identity/sharing/junction probes, Credential Manager, TLS enrollment and native build. User will run the forthcoming standalone Windows 11 procedure on a physical PC; no self-hosted runner is required and unrelated work continues.

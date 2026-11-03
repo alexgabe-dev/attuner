@@ -11,7 +11,28 @@ const blobDirectory =
   process.env.ATTUNER_TEST_BLOBS === '1'
     ? await mkdtemp(join(tmpdir(), 'attuner-native-transfer-'))
     : undefined;
-const h = await secureHarness(blobDirectory ? { blobDirectory } : {});
+let corruptWireHash = '';
+let loseCommitReply = false;
+const h = await secureHarness({
+  ...(blobDirectory ? { blobDirectory } : {}),
+  transformResponse: (path, payload) => {
+    if (loseCommitReply && path.endsWith('/commit')) {
+      loseCommitReply = false;
+      throw new Error('Synthetic committed response interruption');
+    }
+    if (
+      corruptWireHash &&
+      Buffer.isBuffer(payload) &&
+      path.includes('/blobs/' + corruptWireHash + '?') &&
+      payload.length
+    ) {
+      const corrupted = Buffer.from(payload);
+      corrupted[0] = corrupted[0]! ^ 1;
+      return corrupted;
+    }
+    return payload;
+  },
+});
 const password = randomUUID() + randomUUID();
 await h.security.bootstrap('synthetic-owner', password);
 const session = await h.login('synthetic-owner', password);
@@ -31,7 +52,12 @@ process.stdout.write(
 );
 const lines = createInterface({ input: process.stdin });
 for await (const line of lines) {
-  const command = JSON.parse(line) as { kind: string; enrollmentId?: string; deviceId?: string };
+  const command = JSON.parse(line) as {
+    kind: string;
+    enrollmentId?: string;
+    deviceId?: string;
+    hash?: string;
+  };
   if (command.kind === 'approve') {
     const response = await h.web(
       'POST',
@@ -50,6 +76,28 @@ for await (const line of lines) {
       {},
     );
     process.stdout.write(JSON.stringify({ status: response.status }) + '\n');
+  } else if (command.kind === 'pause') {
+    h.app.server.closeIdleConnections();
+    h.app.server.closeAllConnections();
+    await new Promise<void>((resolve, reject) =>
+      h.app.server.close((error) => (error ? reject(error) : resolve())),
+    );
+    process.stdout.write(JSON.stringify({ paused: true }) + '\n');
+  } else if (command.kind === 'resume') {
+    await new Promise<void>((resolve, reject) => {
+      h.app.server.once('error', reject);
+      h.app.server.listen(Number(new URL(h.origin).port), '127.0.0.1', () => {
+        h.app.server.removeListener('error', reject);
+        resolve();
+      });
+    });
+    process.stdout.write(JSON.stringify({ resumed: true }) + '\n');
+  } else if (command.kind === 'loseCommitReply') {
+    loseCommitReply = true;
+    process.stdout.write(JSON.stringify({ armed: true }) + '\n');
+  } else if (command.kind === 'corruptWire') {
+    corruptWireHash = command.hash ?? '';
+    process.stdout.write(JSON.stringify({ changed: true }) + '\n');
   } else if (command.kind === 'counts') {
     const devices = await h.db.query<{ n: number }>('SELECT count(*) AS n FROM devices');
     const credentials = await h.db.query<{ n: number }>(

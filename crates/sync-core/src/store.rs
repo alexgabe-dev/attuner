@@ -58,12 +58,17 @@ impl Store {
             "PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;",
         )?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |r| r.get(0))?;
-        if version > 1 {
+        if version > 2 {
             return Err(Error::Integrity("unknown metadata schema".into()));
         }
         if version == 0 {
             let tx = connection.transaction()?;
             tx.execute_batch(include_str!("../migrations/0001_local.sql"))?;
+            tx.commit()?;
+        }
+        if version < 2 {
+            let tx = connection.transaction()?;
+            tx.execute_batch(include_str!("../migrations/0002_remote_state.sql"))?;
             tx.commit()?;
         }
         let adapter_json = serde_json::to_string(adapter)?;
@@ -91,11 +96,20 @@ impl Store {
         Ok(())
     }
     pub fn capture(&mut self, scan: &CompleteScan, label: &str) -> Result<Snapshot> {
+        self.insert_snapshot(&scan.manifest, &scan.coverage, label, true)
+    }
+    pub(crate) fn insert_snapshot(
+        &mut self,
+        manifest: &Manifest,
+        coverage: &Coverage,
+        label: &str,
+        initial_baseline: bool,
+    ) -> Result<Snapshot> {
         if label.is_empty() || label.len() > 128 {
             return Err(Error::Limit("snapshot label".into()));
         }
-        let manifest = serde_json::to_string(&scan.manifest)?;
-        let coverage = serde_json::to_string(&scan.coverage)?;
+        let manifest = serde_json::to_string(manifest)?;
+        let coverage = serde_json::to_string(coverage)?;
         let digest = blake3::hash(manifest.as_bytes()).to_hex().to_string();
         let tx = self.connection.transaction()?;
         tx.execute(
@@ -103,10 +117,12 @@ impl Store {
             params![label, manifest, coverage, digest],
         )?;
         let id = tx.last_insert_rowid();
-        tx.execute(
-            "INSERT OR IGNORE INTO baseline(id,snapshot_id) VALUES(1,?1)",
-            [id],
-        )?;
+        if initial_baseline {
+            tx.execute(
+                "INSERT OR IGNORE INTO baseline(id,snapshot_id) VALUES(1,?1)",
+                [id],
+            )?;
+        }
         tx.commit()?;
         self.snapshot(id)
     }
@@ -184,10 +200,23 @@ impl Store {
         )?)
     }
     #[cfg(unix)]
-    pub fn prepare(&mut self, target: i64, before: &CompleteScan, steps: &[Step]) -> Result<i64> {
+    pub fn prepare(
+        &mut self,
+        target: i64,
+        before: &CompleteScan,
+        steps: &[Step],
+        sync_job: Option<&str>,
+    ) -> Result<i64> {
         let tx = self.connection.transaction()?;
         tx.execute("INSERT INTO operations(target_snapshot,state,before_manifest) VALUES(?1,'prepared',?2)",params![target,serde_json::to_string(&before.manifest)?])?;
         let id = tx.last_insert_rowid();
+        if let Some(job) = sync_job {
+            if tx.execute("UPDATE sync_jobs SET state='applying',generation=generation+1,updated_at=unixepoch() WHERE id=?1 AND state='remoteCommitted'",[job])?!=1{return Err(Error::Concurrent("sync apply state".into()));}
+            tx.execute(
+                "INSERT INTO sync_applications VALUES(?1,?2)",
+                params![id, job],
+            )?;
+        }
         for (index, step) in steps.iter().enumerate() {
             tx.execute("INSERT INTO operation_steps(operation_id,position,step,state) VALUES(?1,?2,?3,'prepared')",params![id,index as i64,serde_json::to_string(step)?])?;
         }
@@ -240,10 +269,20 @@ impl Store {
     }
     #[cfg(unix)]
     pub fn state(&self, id: i64, state: &str, error: Option<&str>) -> Result<()> {
-        self.connection.execute(
+        let tx = self.connection.unchecked_transaction()?;
+        tx.execute(
             "UPDATE operations SET state=?2,error=?3 WHERE id=?1",
             params![id, state, error],
         )?;
+        let next = match state {
+            "recoveryRequired" => Some("recoveryRequired"),
+            "rolledBack" => Some("failed"),
+            _ => None,
+        };
+        if let Some(next) = next {
+            tx.execute("UPDATE sync_jobs SET state=?2,generation=generation+1,updated_at=unixepoch() WHERE id=(SELECT job_id FROM sync_applications WHERE operation_id=?1)",params![id,next])?;
+        }
+        tx.commit()?;
         Ok(())
     }
     #[cfg(unix)]
@@ -253,6 +292,24 @@ impl Store {
         let applied = tx.last_insert_rowid();
         tx.execute("UPDATE baseline SET snapshot_id=?1 WHERE id=1", [applied])?;
         tx.execute("UPDATE operations SET state='committed' WHERE id=?1", [id])?;
+        let job_id: Option<String> = tx
+            .query_row(
+                "SELECT job_id FROM sync_applications WHERE operation_id=?1",
+                [id],
+                |r| r.get(0),
+            )
+            .optional()?;
+        if let Some(job_id) = job_id {
+            let job = crate::synchronization::load_job(&tx, &job_id)?;
+            let head = job.data.published_head.ok_or(Error::Coverage)?;
+            tx.execute("INSERT INTO remote_baseline VALUES(1,?1,?2) ON CONFLICT(id) DO UPDATE SET snapshot_id=excluded.snapshot_id,head=excluded.head",params![applied,serde_json::to_string(&head)?])?;
+            tx.execute(
+                "INSERT INTO sync_outbox VALUES(?1,?2,?3,'pending')",
+                params![job_id, applied, serde_json::to_string(&head)?],
+            )?;
+            tx.execute("UPDATE sync_jobs SET state='acknowledgementPending',generation=generation+1,updated_at=unixepoch() WHERE id=?1",[job_id])?;
+        }
+
         tx.commit()?;
         Ok(())
     }

@@ -14,7 +14,7 @@ pub struct Verification {
 }
 pub(crate) fn put(
     workspace: &Workspace,
-    mut source: File,
+    mut source: impl Read,
     entry: &ManifestFile,
     control: &Control,
     limits: &Limits,
@@ -69,11 +69,11 @@ pub(crate) fn put(
     control.event(Point::BackupVerified, 0, &entry.path)?;
     Ok(())
 }
-fn decode(
+pub(crate) fn decode(
     objects: &Dir,
     name: &str,
     entry: &ManifestFile,
-    mut destination: Option<&mut File>,
+    mut destination: Option<&mut dyn Write>,
     control: &Control,
     limits: &Limits,
 ) -> Result<u64> {

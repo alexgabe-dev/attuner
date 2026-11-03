@@ -1,66 +1,8 @@
 use crate::{DeviceClient, Error, Result};
+pub use attuner_sync_core::synchronization::{ProfileHead, RemoteHead};
 use attuner_sync_core::{Manifest, remote};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-const MAX_REVISION: u64 = 9007199254740991;
-fn hash(value: &str) -> bool {
-    value.len() == 64
-        && value
-            .bytes()
-            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
-}
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct RemoteHead {
-    pub snapshot_id: Option<String>,
-    pub revision: u64,
-    pub manifest_hash: Option<String>,
-}
-impl RemoteHead {
-    pub fn validate(&self) -> Result<()> {
-        if self.revision > MAX_REVISION {
-            return Err(Error::Protocol);
-        }
-        if self.revision == 0 {
-            if self.snapshot_id.is_some() || self.manifest_hash.is_some() {
-                return Err(Error::Protocol);
-            }
-        } else if !self
-            .snapshot_id
-            .as_deref()
-            .is_some_and(|v| uuid::Uuid::parse_str(v).is_ok())
-            || !self.manifest_hash.as_deref().is_some_and(hash)
-        {
-            return Err(Error::Protocol);
-        }
-        Ok(())
-    }
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct ProfileHead {
-    pub head: RemoteHead,
-    pub policy_version: u32,
-    pub namespace_version: u32,
-    pub roots: Vec<String>,
-}
-impl ProfileHead {
-    fn validate(&self) -> Result<()> {
-        self.head.validate()?;
-        if self.policy_version == 0
-            || self.namespace_version != 1
-            || self.roots.is_empty()
-            || self.roots.len() > 3
-            || self.roots.iter().enumerate().any(|(i, r)| {
-                !matches!(r.as_str(), "account" | "addons" | "character")
-                    || self.roots[..i].contains(r)
-            })
-        {
-            return Err(Error::Protocol);
-        }
-        Ok(())
-    }
-}
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RemoteSnapshot {

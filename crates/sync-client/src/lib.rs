@@ -1,5 +1,8 @@
 //! HTTPS transport and device enrollment. Filesystem safety remains in sync-core.
+mod application;
+mod coordinator;
 mod credential;
+pub use coordinator::{BootstrapChoice, Coordinator};
 mod device;
 mod publication;
 mod transfer;
@@ -23,6 +26,12 @@ pub enum Error {
     Authentication,
     #[error("The enrollment callback did not match this device's pending request.")]
     Enrollment,
+    #[error("Review the synchronization proposal before continuing.")]
+    ReviewRequired,
+    #[error("The local files or remote head changed. Compare again before approving.")]
+    StaleReview,
+    #[error("Finish or cancel the existing synchronization job first.")]
+    PendingJob,
     #[error("The operation was cancelled.")]
     Cancelled,
     #[error("The server requires a fresh synchronization comparison.")]

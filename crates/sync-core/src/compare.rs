@@ -171,6 +171,89 @@ pub fn three_way(baseline: &Manifest, local: &CompleteScan, remote: &Manifest) -
     };
     Ok(Merge { merged, conflicts })
 }
+/// Explicit byte-variant choices only. Addon consistency groups require one choice
+/// across all contested members; no Lua is parsed or merged.
+pub fn resolve_three_way(
+    baseline: &Manifest,
+    local: &CompleteScan,
+    remote: &Manifest,
+    decisions: &[crate::synchronization::Decision],
+) -> Result<Manifest> {
+    use crate::synchronization::Choice;
+    let merge = three_way(baseline, local, remote)?;
+    if let Some(merged) = merge.merged {
+        if !decisions.is_empty() {
+            return Err(Error::Coverage);
+        }
+        return Ok(merged);
+    }
+    let conflicts: BTreeMap<_, _> = merge
+        .conflicts
+        .iter()
+        .map(|c| ((c.change.root.clone(), c.change.path.clone()), c))
+        .collect();
+    let mut choices = BTreeMap::new();
+    let mut groups = BTreeMap::new();
+    if decisions.len() != conflicts.len() {
+        return Err(Error::Coverage);
+    }
+    for decision in decisions {
+        let key = (decision.root.clone(), decision.path.clone());
+        let conflict = conflicts.get(&key).ok_or(Error::Coverage)?;
+        if choices.insert(key, decision.choice).is_some() {
+            return Err(Error::Coverage);
+        }
+        if decision.root == "addons" {
+            let group = conflict
+                .change
+                .before
+                .iter()
+                .chain(conflict.change.after.iter())
+                .chain(conflict.remote.iter())
+                .next()
+                .ok_or(Error::Coverage)?
+                .group
+                .clone();
+            if groups
+                .insert(group, decision.choice)
+                .is_some_and(|old| old != decision.choice)
+            {
+                return Err(Error::Coverage);
+            }
+        }
+    }
+    let b = files(baseline);
+    let l = files(&local.manifest);
+    let r = files(remote);
+    let keys: BTreeSet<_> = b.keys().chain(l.keys()).chain(r.keys()).cloned().collect();
+    let mut merged = baseline.clone();
+    merged.files.clear();
+    for key in keys {
+        let before = b.get(&key);
+        let left = l.get(&key);
+        let right = r.get(&key);
+        let selected = if let Some(choice) = choices.get(&key) {
+            match choice {
+                Choice::Local => left,
+                Choice::Remote => right,
+            }
+        } else if equal(left, right) {
+            left
+        } else if equal(before, left) {
+            right
+        } else if equal(before, right) {
+            left
+        } else {
+            return Err(Error::Coverage);
+        };
+        if let Some(file) = selected {
+            merged.files.push(file.clone());
+        }
+    }
+    compatible(&merged, &merged, &local.coverage)?;
+    Ok(merged)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,6 +286,66 @@ mod tests {
             },
             workspace: "synthetic-unit-receipt".into(),
         }
+    }
+    #[test]
+    fn explicit_modification_deletion_choices_preserve_selected_variants() {
+        use crate::synchronization::{Choice, Decision};
+        let base = manifest(Some('a'));
+        let local = receipt(manifest(Some('b')));
+        let remote = manifest(None);
+        assert!(resolve_three_way(&base, &local, &remote, &[]).is_err());
+        let choice = |choice| {
+            vec![Decision {
+                root: "account".into(),
+                path: "a.lua".into(),
+                choice,
+            }]
+        };
+        assert_eq!(
+            resolve_three_way(&base, &local, &remote, &choice(Choice::Local)).unwrap(),
+            local.manifest
+        );
+        assert_eq!(
+            resolve_three_way(&base, &local, &remote, &choice(Choice::Remote)).unwrap(),
+            remote
+        );
+        let mut duplicate = choice(Choice::Local);
+        duplicate.push(duplicate[0].clone());
+        assert!(resolve_three_way(&base, &local, &remote, &duplicate).is_err());
+    }
+    #[test]
+    fn conflicting_addon_members_cannot_select_inconsistent_sides() {
+        use crate::synchronization::{Choice, Decision};
+        let mut base = manifest(Some('a'));
+        base.files[0].root = "addons".into();
+        base.files[0].path = "Demo/a.lua".into();
+        let mut second = base.files[0].clone();
+        second.path = "Demo/b.lua".into();
+        base.files.push(second);
+        let mut left = base.clone();
+        left.files[0].hash = "b".repeat(64);
+        let mut right = base.clone();
+        right.files[1].hash = "c".repeat(64);
+        let mut local = receipt(left);
+        local.coverage.roots = vec!["addons".into()];
+        let mut decisions = vec![
+            Decision {
+                root: "addons".into(),
+                path: "Demo/a.lua".into(),
+                choice: Choice::Local,
+            },
+            Decision {
+                root: "addons".into(),
+                path: "Demo/b.lua".into(),
+                choice: Choice::Remote,
+            },
+        ];
+        assert!(resolve_three_way(&base, &local, &right, &decisions).is_err());
+        decisions[1].choice = Choice::Local;
+        assert_eq!(
+            resolve_three_way(&base, &local, &right, &decisions).unwrap(),
+            local.manifest
+        );
     }
     #[test]
     fn exhaustive_three_way_modification_deletion_matrix() {

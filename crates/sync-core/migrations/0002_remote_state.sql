@@ -1,0 +1,8 @@
+CREATE TABLE remote_binding(id INTEGER PRIMARY KEY CHECK(id=1),server_id TEXT NOT NULL,origin TEXT NOT NULL,profile_id TEXT NOT NULL,policy_version INTEGER NOT NULL,roots TEXT NOT NULL,observed_head TEXT NOT NULL);
+CREATE TRIGGER binding_identity_immutable BEFORE UPDATE OF server_id,origin,profile_id,policy_version,roots ON remote_binding BEGIN SELECT RAISE(ABORT,'remote binding is immutable'); END;
+CREATE TABLE remote_baseline(id INTEGER PRIMARY KEY CHECK(id=1),snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),head TEXT NOT NULL);
+CREATE TABLE sync_jobs(id TEXT PRIMARY KEY,state TEXT NOT NULL CHECK(state IN ('ready','capturing','fetching','comparing','bootstrapReview','conflictReview','transferring','awaitingApproval','publishing','remoteCommitted','applying','recoveryRequired','acknowledgementPending','complete','cancelled','offline','revoked','failed')),generation INTEGER NOT NULL CHECK(generation>=1 AND generation<=9007199254740991),payload TEXT NOT NULL CHECK(json_valid(payload) AND length(payload)<=67108864),digest TEXT NOT NULL CHECK(length(digest)=64),created_at INTEGER NOT NULL DEFAULT(unixepoch()),updated_at INTEGER NOT NULL DEFAULT(unixepoch()));
+CREATE UNIQUE INDEX one_active_sync_job ON sync_jobs((1)) WHERE state NOT IN ('complete','cancelled','failed');
+CREATE TABLE sync_outbox(job_id TEXT PRIMARY KEY REFERENCES sync_jobs(id),snapshot_id INTEGER NOT NULL REFERENCES snapshots(id),head TEXT NOT NULL,state TEXT NOT NULL CHECK(state IN ('pending','delivered')));
+CREATE TABLE sync_applications(operation_id INTEGER PRIMARY KEY REFERENCES operations(id),job_id TEXT UNIQUE NOT NULL REFERENCES sync_jobs(id));
+PRAGMA user_version=2;
