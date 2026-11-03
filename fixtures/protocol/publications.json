@@ -1,0 +1,41 @@
+[
+  {
+    "manifest": {
+      "protocolVersion": 1,
+      "profileId": "11111111-1111-4111-8111-111111111111",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "é.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 0,
+          "group": "account:a469e4e2655e0e4afc5f5c9b"
+        },
+        {
+          "root": "account",
+          "path": "a.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:03680e304de67f025256e5f9"
+        },
+        {
+          "root": "account",
+          "path": "Straße.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 2,
+          "group": "account:ec7dd0922e53a32e3d4d7413"
+        },
+        {
+          "root": "account",
+          "path": "😀.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 3,
+          "group": "account:fa65f094b7b6008e377447df"
+        }
+      ]
+    },
+    "canonical": "{\"files\":[{\"group\":\"account:ec7dd0922e53a32e3d4d7413\",\"hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"Straße.lua\",\"root\":\"account\",\"size\":2},{\"group\":\"account:03680e304de67f025256e5f9\",\"hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"a.lua\",\"root\":\"account\",\"size\":1},{\"group\":\"account:a469e4e2655e0e4afc5f5c9b\",\"hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"é.lua\",\"root\":\"account\",\"size\":0},{\"group\":\"account:fa65f094b7b6008e377447df\",\"hash\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"path\":\"😀.lua\",\"root\":\"account\",\"size\":3}],\"policyVersion\":1,\"profileId\":\"11111111-1111-4111-8111-111111111111\",\"protocolVersion\":1}",
+    "hash": "e415d175d7845125c2c9db0044629d5b17d08c999c67ff06f5ce13f3a7073c25"
+  }
+]

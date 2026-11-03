@@ -24,3 +24,5 @@ mod apply;
 mod recovery;
 #[cfg(unix)]
 pub use apply::write_synthetic_file;
+pub mod namespace;
+pub mod remote;

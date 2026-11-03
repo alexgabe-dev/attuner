@@ -1,5 +1,7 @@
 export default {
   devIndicators: false,
+  // Keep document titles available when the new route becomes interactive.
+  htmlLimitedBots: /.*/,
   transpilePackages: ['@attuner/ui', '@attuner/shared'],
   poweredByHeader: false,
   async headers() {

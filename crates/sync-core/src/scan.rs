@@ -7,8 +7,6 @@ use cap_fs_ext::MetadataExt;
 use cap_std::fs::{Dir, File};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeSet, io::Read};
-use unicode_casefold::UnicodeCaseFold;
-use unicode_normalization::UnicodeNormalization;
 pub(crate) const BUFFER: usize = 64 * 1024;
 #[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -44,7 +42,7 @@ struct Entry {
     modified: Option<cap_std::time::SystemTime>,
 }
 pub(crate) fn collision_key(s: &str) -> String {
-    s.nfkc().case_fold().collect()
+    crate::namespace::key(s)
 }
 pub(crate) fn hash(
     mut file: File,
@@ -107,7 +105,10 @@ fn inventory(
         } else {
             format!("{prefix}/{name}")
         };
-        if !crate::portable_path(&path) || !seen.insert(collision_key(&format!("{root}/{path}"))) {
+        if !crate::portable_path(&path)
+            || !crate::namespace::assigned(&path)
+            || !seen.insert(collision_key(&format!("{root}/{path}")))
+        {
             return Err(Error::UnsafePath(path));
         }
         if out.len() >= limits.max_entries {
