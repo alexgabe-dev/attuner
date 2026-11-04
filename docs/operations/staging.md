@@ -65,6 +65,7 @@ df -hT / /srv
 findmnt -no FSTYPE /sys/fs/cgroup
 findmnt -no FSTYPE /run
 swapon --show
+lsblk -o NAME,TYPE,FSTYPE,MOUNTPOINTS
 nginx -v
 nginx -V
 systemd --version
@@ -148,7 +149,8 @@ sudo sh -c 'umask 077; systemd-ask-password "Internal API TLS passphrase:" | /us
 Supply `api-tls-key.age` from the already encrypted PKCS#8 key using `sudo age -p -o /srv/attuner-staging/secrets/api-tls-key.age /approved/path/internal-encrypted-key.pem`. Escrow/provision the backup key through the approved secret manager pipe, never through a plaintext persistent file or shell literal. Disable shell tracing; never use `SetCredential` for authentication material. Operator input/age processing requires an actual terminal. The helper accepts only the fixed `api` or `backup` role, requires root/Linux/tmpfs/trusted age, checks private single-link bounded ciphertext, authenticates every role entry, refuses existing runtime output and preserves failed private stages for investigation. It never starts a service or changes permissions to make a secret readable.
 
 ```sh
-sudo python3 -B /opt/attuner/current/infrastructure/staging/unlock-credentials.py api
+sudo systemd-run --scope --slice=attuner-staging.slice -p MemoryMax=512M -p MemorySwapMax=0 \
+  /usr/bin/python3 -B /opt/attuner/current/infrastructure/staging/unlock-credentials.py api
 sudo -u attuner-api env NODE_ENV=production ATTUNER_DATA_DIR=/srv/attuner-staging/data \
   /opt/attuner/toolchains/node-v24.22.2-linux-x64/bin/node \
   /opt/attuner/current/apps/api/dist/apps/api/src/admin.js bootstrap owner
@@ -187,6 +189,19 @@ After manual review, optional readiness and backup-freshness timers can be start
 ## Rollback and secret locking
 
 Record the new include's SHA-256 and previous `current` link before activation. To roll back first exposure, verify `/etc/nginx/conf.d/attuner-staging.conf` still matches the installed reviewed hash, then remove **only that new include**. Run `sudo nginx -t`; only if it passes, `sudo systemctl reload nginx` and recheck existing-site health. Never restore the entire old Nginx tree over unrelated edits or restart it to force a rollback.
+
+From the retained reviewed bundle, with `set -e` in the operator's rollback shell, these commands refuse a changed include before removing it:
+
+```sh
+set -e
+sudo cmp --silent -- attuner-staging.conf /etc/nginx/conf.d/attuner-staging.conf
+sudo unlink /etc/nginx/conf.d/attuner-staging.conf
+sudo nginx -t
+sudo systemctl reload nginx
+sudo systemctl stop attuner-staging-api.service attuner-staging-web.service
+```
+
+If comparison or syntax validation fails, halt and investigate; do not issue the subsequent reload. Check existing-site baseline health immediately after a successful reload. Preserve Attuner data, backups, source releases and encrypted secrets.
 
 Stop/disable only `attuner-staging-monitor.timer` and `attuner-staging-backup-monitor.timer` if enabled. Stop Attuner's API/web and any explicitly identified active backup instance; never use wildcard stop/kill commands against unrelated services. Inspect unit states before locking secrets. After verifying encrypted source/escrow recovery, unlink only the selected role's known runtime files and ready receipt (`api-tls-key`, `api-tls-passphrase`, `token-delivery-key`, `api.ready` or `backup.key`, `backup.ready`) under `/run/attuner-staging-secrets`. Do not print secret contents, recursively remove unknown partial stages or change ACLs. Unknown leftovers require private investigation. API/web/backup must be inactive during rotation/locking; absence of a receipt is a locked state, not a retry authorization.
 
