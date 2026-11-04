@@ -2,7 +2,9 @@
 
 **World of Warcraft Configuration Sync** · Your WoW setup. Everywhere.
 
-Phase 3 connects the independent Rust engine to an authenticated HTTPS Fastify service: scoped devices, verified resumable blobs, immutable revisions, compare-and-swap publication, explicit three-way review, transactional local application and recovery. The Tauri desktop and Next.js dashboard share the Attuner design system.
+Attuner connects an independent Rust engine to an authenticated HTTPS Fastify service: scoped devices, verified resumable blobs, immutable revisions, compare-and-swap publication, explicit three-way review, transactional local application and recovery. The Tauri desktop and Next.js dashboard share the Attuner design system.
+
+Phase 4 adds native Windows qualification tooling, unsigned distribution/signing preparation, encrypted server recovery, undeployed staging hardening, isolated pack/performance experiments, local account administration, profile management and reviewed private diagnostics. Platform/release gates remain explicit; this is not a public-beta release.
 
 **Synthetic installations only.** No real WoW access, automatic synchronization or production deployment. Windows filesystem application remains disabled pending independent native durability qualification.
 
@@ -41,6 +43,11 @@ See [complete launch/certificate/secure-store instructions](docs/operations/phas
 
 ## Verification and limits
 
+- [Phase 4 verification ledger and release blockers](docs/operations/phase-4-progress.md)
+- [Beta setup, privacy, diagnostics and release checklist](docs/operations/beta-readiness.md)
+- [Phase 4 pack/shaped-HTTPS performance measurements](docs/operations/phase-4-performance.md)
+- [Local account administration](docs/operations/local-accounts.md), [encrypted backup/restore](docs/operations/server-backup-restore.md), [undeployed staging](docs/operations/staging.md), [distribution pipelines](docs/operations/desktop-distribution.md)
+- [Phase 5 real-installation proposal — requires separate approval](docs/architecture/phase-5-real-installations-proposal.md)
 - [Phase 3 verification, screenshots and remaining gates](docs/operations/phase-3-verification.md)
 - [Cold/warm capture and transfer measurements](docs/operations/phase-3-performance.md)
 - [Standalone physical Windows 11 qualification](docs/operations/windows-11-qualification.md)
@@ -60,8 +67,8 @@ Stop other dev listeners before `pnpm verify`; its connected check mints isolate
 
 Connected UI data is real service metadata about synthetic fixtures. The retained design scenarios are explicitly simulated: run `pnpm dev:web` and open `http://127.0.0.1:3000/?demo=1`. The desktop browser preview uses `pnpm dev:desktop:browser` and `http://127.0.0.1:1420/?demo=1`; native commands are disabled there. Demo interactions do not contact the sync server.
 
-The server is trusted with plaintext configuration content; this is not end-to-end encryption. Real game interlocks/adapters, signed release qualification, Windows apply, automatic cleanup and production operational hardening remain out of scope. Phase 1/2 history remains documented in [foundation verification](docs/operations/verification.md) and [local-engine verification](docs/operations/phase-2-verification.md).
+The server is trusted with plaintext configuration content; this is not end-to-end encryption. Real game interlocks/adapters, signed release qualification, full Windows apply, automatic cleanup, real host activation and production deployment remain gated. The experimental packs are not used by the engine. Phase 1/2 history remains documented in [foundation verification](docs/operations/verification.md) and [local-engine verification](docs/operations/phase-2-verification.md).
 
 ## Workspace
 
-`apps/{desktop,web,api}`, `packages/{ui,shared,sync-protocol,database}`, `crates/{sync-core,sync-client}`, `fixtures`, `infrastructure`, `docs`.
+`apps/{desktop,web,api}`, `packages/{ui,shared,sync-protocol,database}`, `crates/{sync-core,sync-client,platform-windows,object-pack-lab}`, `fixtures`, `infrastructure`, `docs`.

@@ -26,6 +26,8 @@ Beta feedback should include candidate source/version, OS/build, synthetic scena
 
 Attuner currently has no telemetry, analytics, remote crash collection or background synchronization. OS crash reporting is independent of Attuner and is not disabled or reconfigured. A future crash service requires a separate opt-in/privacy design: no automatic memory dumps, source files, tokens, URLs or path-rich stack metadata; local preview, explicit consent, bounded retention/access/deletion and a documented processor/region. No provider is selected or integrated here.
 
+The self-hosted server is trusted with uploaded configuration contents. Verified TLS, encrypted operational backups and an encrypted server volume do not make synchronization end-to-end encrypted. Account/device authorization limits access, while the service operator can still read stored content; review scope/content before a future real-data upload is approved.
+
 ## Platform and resource requirements
 
 | Surface             | Prepared target                                                               | Actual qualification boundary                                                                                                                      |
