@@ -18,7 +18,7 @@ declare module 'fastify' {
     attunerActor?: Actor;
   }
 }
-export type Actor = { kind: 'user' | 'device' | 'anonymous'; id: string | null };
+export type Actor = { kind: 'user' | 'device' | 'anonymous' | 'operator'; id: string | null };
 export type User = {
   id: string;
   username: string;
@@ -69,7 +69,21 @@ export class Security {
         sql: 'UPDATE devices SET revoked_at=coalesce(revoked_at,?) WHERE id IN (SELECT device_id FROM device_owners WHERE user_id=?)',
         params: [now, id],
       },
-      ...this.auditStatements({ kind: 'user', id }, 'administrator.recovered', 'local-cli'),
+      {
+        sql: 'UPDATE device_credentials SET revoked_at=coalesce(revoked_at,?) WHERE device_id IN (SELECT device_id FROM device_owners WHERE user_id=?)',
+        params: [now, id],
+      },
+      {
+        sql: "UPDATE enrollments SET state='denied' WHERE user_id=? AND state IN ('pending','approved')",
+        params: [id],
+      },
+      ...this.auditStatements(
+        { kind: 'operator', id: null },
+        'administrator.recovered',
+        'local-cli',
+        null,
+        { targetUserId: id },
+      ),
     ]);
   }
   async initialize() {
