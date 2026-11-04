@@ -1,5 +1,7 @@
 use crate::{Error, Result};
 use zeroize::Zeroizing;
+/// Stable across versions and signing-certificate rotation. Never version this key.
+pub const CREDENTIAL_SERVICE: &str = "app.attuner.desktop";
 /// Production hosts use OsCredentialStore. No file-backed or plaintext fallback exists.
 pub trait CredentialStore: Send + Sync {
     fn read(&self, account: &str) -> Result<Option<Zeroizing<Vec<u8>>>>;
@@ -12,7 +14,7 @@ pub struct OsCredentialStore {
 impl Default for OsCredentialStore {
     fn default() -> Self {
         Self {
-            service: "app.attuner.desktop".into(),
+            service: CREDENTIAL_SERVICE.into(),
         }
     }
 }
@@ -79,5 +81,32 @@ mod tests {
             .delete(&account)
             .expect("remove owned synthetic credential");
         assert!(store.read(&account).unwrap().is_none());
+    }
+
+    #[test]
+    fn recreated_native_store_retains_rotates_and_removes_only_its_own_secret() {
+        let account = uuid::Uuid::new_v4().to_string();
+        let service = "app.attuner.desktop.tests".to_owned();
+        let before = Zeroizing::new(uuid::Uuid::new_v4().as_bytes().to_vec());
+        let after = Zeroizing::new(uuid::Uuid::new_v4().as_bytes().to_vec());
+        {
+            let store = OsCredentialStore {
+                service: service.clone(),
+            };
+            store.write(&account, &before).expect("initial OS write");
+        }
+        let reopened = OsCredentialStore { service };
+        assert!(reopened.read(&account).unwrap().unwrap().as_slice() == before.as_slice());
+        reopened
+            .write(&account, &after)
+            .expect("OS secret rotation");
+        assert!(reopened.read(&account).unwrap().unwrap().as_slice() == after.as_slice());
+        reopened
+            .delete(&account)
+            .expect("remove owned test credential");
+        assert!(reopened.read(&account).unwrap().is_none());
+        assert_eq!(OsCredentialStore::default().service, CREDENTIAL_SERVICE);
+        // This is a reopened-store test; a signed binary upgrade remains a
+        // separate platform qualification gate, not implied by this assertion.
     }
 }

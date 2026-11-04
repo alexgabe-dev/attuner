@@ -20,3 +20,13 @@ Pending: corrected native Windows Server CI and the physical Windows 11 bundle r
 - Signing accounts unavailable (user confirmed). Prepare pipelines; unsigned development builds only.
 - Physical Windows 11 qualification to be run locally by the user. No self-hosted runner required.
 - No production/staging VPS deployment authorized; files and local tests only.
+
+## D1 — distribution preparation (account-dependent qualification blocked)
+
+- Added macOS app/DMG and per-user Windows NSIS configurations, retaining the application identifier/deep-link/credential service. Windows packaging does not install WebView2.
+- Added a candidate-only CI workflow: unsigned by default, protected-environment signed mode, pinned action commits, no release publication permissions or deployment commands. Signed prerequisites fail closed without accounts.
+- Prepared real Developer ID/hardened-runtime app signing, App Store Connect notarization, stapling, Gatekeeper assessment and separate signed/notarized DMG validation. Prepared Azure OIDC/non-exportable signing of executable, generated uninstaller and NSIS installer, publisher/timestamp verification and public receipts. These provider-dependent paths have not run without accounts.
+- Added clean-source/version/identity preflight, bounded streamed SHA-256 artifact inventory, explicit development/release-gate metadata and version-bound offline updater signatures. No updater is activated. Documented trust, rotation, replay/version checks and signed-upgrade requirements.
+- Native OS credential reopen/rotation/deletion test passed on macOS, using random owned test entries with no plaintext fallback. This is not signed-upgrade evidence.
+- Actual unsigned macOS development build succeeded: app 55.41 MiB, DMG 13.25 MiB. Collected ZIP/DMG and generated a development manifest. Inspected the rebuilt native UI and retained `artifacts/phase-4/desktop-unsigned-onboarding.png`. UI unchanged in this milestone.
+- Local checks passed: formatting, ESLint, all TypeScript checks, 82 Vitest tests including migration/security suites and four distribution-policy tests, Rust workspace Clippy, three native credential/client unit tests. Unsigned Windows installer/candidate CI and actual signed paths remain to be qualified independently.

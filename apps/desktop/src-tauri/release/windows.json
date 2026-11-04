@@ -1,0 +1,14 @@
+{
+  "bundle": {
+    "targets": ["nsis"],
+    "windows": {
+      "webviewInstallMode": { "type": "skip" },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "displayLanguageSelector": false,
+        "compression": "lzma"
+      }
+    }
+  }
+}

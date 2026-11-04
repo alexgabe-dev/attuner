@@ -1,0 +1,203 @@
+name: Attuner distribution candidates
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build CI candidate artifacts only; signed mode requires configured accounts
+        required: true
+        type: choice
+        default: development
+        options: [development, signed]
+  push:
+    branches: [phase4-beta-readiness, main]
+    paths:
+      - .github/workflows/distribution.yml
+      - apps/desktop/src-tauri/release/**
+      - scripts/*release*.ts
+      - scripts/*release*.ps1
+      - scripts/notary-key.ts
+      - scripts/sign-update-artifacts.ts
+permissions:
+  contents: read
+concurrency:
+  group: distribution-${{ github.ref }}-${{ inputs.mode || 'development' }}
+  cancel-in-progress: false
+jobs:
+  macos:
+    if: github.repository == 'alexgabe-dev/attuner' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase4-beta-readiness')
+    runs-on: macos-15
+    environment: ${{ inputs.mode == 'signed' && 'signing-candidates' || 'development-artifacts' }}
+    timeout-minutes: 45
+    env:
+      ATTUNER_RELEASE_MODE: ${{ inputs.mode || 'development' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.22.2
+      - run: npm install --global pnpm@10.33.4
+      - run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsx scripts/prepare-release.ts preflight
+      - name: Check signed-build prerequisites
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/release-prerequisites.ts macos
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+          ATTUNER_APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+          ATTUNER_APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Materialize temporary notarization key
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/notary-key.ts create
+        env:
+          ATTUNER_APPLE_API_PRIVATE_KEY: ${{ secrets.APPLE_API_PRIVATE_KEY }}
+      - name: Build unsigned development app and disk image
+        if: env.ATTUNER_RELEASE_MODE == 'development'
+        run: pnpm --filter @attuner/desktop tauri build --debug --ci --config src-tauri/release/macos.json
+      - name: Build Developer ID app and notarize
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm --filter @attuner/desktop tauri build --ci --config src-tauri/release/macos.json
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      - name: Collect and validate candidate
+        env:
+          ATTUNER_APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+          mkdir artifacts-release
+          if [ "$ATTUNER_RELEASE_MODE" = signed ]; then ATTUNER_BUILD=release; else ATTUNER_BUILD=debug; fi
+          pnpm exec tsx scripts/collect-release.ts macos "$ATTUNER_BUILD" "$ATTUNER_RELEASE_MODE"
+      - name: Notarize and validate disk image
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/notarize-dmg.ts artifacts-release
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ vars.APPLE_SIGNING_IDENTITY }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      - name: Sign version-bound update artifact
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/sign-update-artifacts.ts artifacts-release macos
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - run: pnpm exec tsx scripts/prepare-release.ts manifest artifacts-release macos "$ATTUNER_RELEASE_MODE"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: attuner-${{ env.ATTUNER_RELEASE_MODE }}-macos
+          path: artifacts-release/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Remove own temporary notarization key
+        if: always() && env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/notary-key.ts remove
+  windows:
+    if: github.repository == 'alexgabe-dev/attuner' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/phase4-beta-readiness')
+    runs-on: windows-2022
+    environment: ${{ inputs.mode == 'signed' && 'signing-candidates' || 'development-artifacts' }}
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      ATTUNER_RELEASE_MODE: ${{ inputs.mode || 'development' }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.22.2
+      - run: npm install --global pnpm@10.33.4
+      - run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec tsx scripts/prepare-release.ts preflight
+      - name: Check signed-build prerequisites
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/release-prerequisites.ts windows
+        env:
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          ATTUNER_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          ATTUNER_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          ATTUNER_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+          ATTUNER_WINDOWS_PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - name: Build unsigned development installer
+        if: env.ATTUNER_RELEASE_MODE == 'development'
+        run: pnpm --filter @attuner/desktop tauri build --debug --ci --config src-tauri/release/windows.json
+      - name: Build release executable
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm --filter @attuner/desktop tauri build --ci --no-bundle --config src-tauri/release/windows.json
+      - name: Azure OIDC login
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Sign inner executable using non-exportable cloud key
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        uses: azure/artifact-signing-action@c7ab2a863ab5f9a846ddb8265964877ef296ee82 # v2.0.0
+        with:
+          endpoint: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          certificate-profile-name: ${{ vars.AZURE_SIGNING_PROFILE }}
+          files: ${{ github.workspace }}\target\release\attuner-desktop.exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+          exclude-environment-credential: true
+          exclude-azure-cli-credential: false
+          cache-dependencies: false
+      - name: Configure signing for every bundler binary
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/configure-windows-signing.ts
+      - name: Bundle and sign executable, uninstaller and installer
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm --filter @attuner/desktop tauri bundle --ci --config src-tauri/release/windows.json --config $env:ATTUNER_SIGN_CONFIG
+        env:
+          ATTUNER_SIGNING_ENDPOINT: ${{ vars.AZURE_SIGNING_ENDPOINT }}
+          ATTUNER_SIGNING_ACCOUNT: ${{ vars.AZURE_SIGNING_ACCOUNT }}
+          ATTUNER_SIGNING_PROFILE: ${{ vars.AZURE_SIGNING_PROFILE }}
+          ATTUNER_WINDOWS_PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
+      - name: Collect candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Path artifacts-release | Out-Null
+          $attunerBuild = $(if ($env:ATTUNER_RELEASE_MODE -eq 'signed') { 'release' } else { 'debug' })
+          pnpm exec tsx scripts/collect-release.ts windows $attunerBuild $env:ATTUNER_RELEASE_MODE
+          if ($LASTEXITCODE -ne 0) { throw 'Artifact collection failed.' }
+      - name: Verify Authenticode, publisher and RFC3161 timestamp
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        shell: pwsh
+        run: ./scripts/validate-windows-release.ps1 -Directory artifacts-release
+        env:
+          ATTUNER_WINDOWS_PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
+      - name: Sign version-bound update artifact
+        if: env.ATTUNER_RELEASE_MODE == 'signed'
+        run: pnpm exec tsx scripts/sign-update-artifacts.ts artifacts-release windows
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+      - run: pnpm exec tsx scripts/prepare-release.ts manifest artifacts-release windows $env:ATTUNER_RELEASE_MODE
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: attuner-${{ env.ATTUNER_RELEASE_MODE }}-windows
+          path: artifacts-release/
+          if-no-files-found: error
+          retention-days: 14
