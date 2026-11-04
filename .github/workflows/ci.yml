@@ -6,8 +6,10 @@ jobs:
   web-and-api:
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.22.2
       - run: npm install --global pnpm@10.33.4
@@ -23,7 +25,7 @@ jobs:
         env:
           ATTUNER_QUALIFICATION_PHASE: '4'
       - run: pnpm test:staging -- --docker
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: attuner-connected-ui
@@ -31,13 +33,13 @@ jobs:
             artifacts/phase-4/web-*.png
             artifacts/phase-4/web-qualification.json
           retention-days: 14
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: always()
         with:
           name: attuner-phase-4-qualification
           path: artifacts/phase-4/
           retention-days: 14
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: failure()
         with:
           name: playwright-report
@@ -49,8 +51,10 @@ jobs:
         os: [macos-15, macos-15-intel, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24.22.2
       - run: npm install --global pnpm@10.33.4
@@ -84,7 +88,7 @@ jobs:
           if ($attunerResultDirectory.Count -ne 1 -or $attunerResultDirectory[0].Name -cne $attunerResultName) { throw 'Results are not in the expected temporary parent.' }
           if ($attunerResultDirectory[0].Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe results directory.' }
           Copy-Item -LiteralPath $attunerResultDirectory[0].FullName -Destination (Join-Path $attunerBundle.FullName 'results') -Recurse
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         if: runner.os == 'Windows'
         with:
           name: attuner-windows-qualification

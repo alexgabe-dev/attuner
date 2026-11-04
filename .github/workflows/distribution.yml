@@ -13,6 +13,18 @@ on:
     paths:
       - .github/workflows/distribution.yml
       - apps/desktop/src-tauri/release/**
+      - apps/desktop/src/**
+      - apps/desktop/src-tauri/src/**
+      - apps/desktop/src-tauri/Cargo.toml
+      - apps/desktop/src-tauri/capabilities/**
+      - apps/desktop/src-tauri/permissions/**
+      - packages/ui/**
+      - packages/shared/**
+      - packages/sync-protocol/**
+      - crates/**
+      - Cargo.lock
+      - Cargo.toml
+      - pnpm-lock.yaml
       - scripts/*release*.ts
       - scripts/*release*.ps1
       - scripts/notary-key.ts
