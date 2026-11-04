@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "os": "darwin",
+  "architecture": "arm64",
+  "scope": "Actual TLS/DPoP/API/SQLite/CAS over a userspace loopback TCP relay. Emulated propagation delay and bandwidth, not a geographic WAN measurement. No OS network changes or deployment.",
+  "limitations": "No jitter/loss/congestion/TCP WAN window model; agent:false includes a new TLS connection for each request. Payload is raw protocol content, not the experimental local pack format. Harness holds at most one 4 MiB+17 synthetic source and bounded chunk responses.",
+  "results": [
+    {
+      "shape": {
+        "rttMs": 0,
+        "uploadMbps": 10000,
+        "downloadMbps": 10000
+      },
+      "content": "compressible",
+      "bytes": 4194321,
+      "uploadMs": 200.4585830000001,
+      "downloadMs": 104.81208300000003,
+      "reuseMs": 20.95370899999989,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230680,
+        "connections": 11
+      }
+    },
+    {
+      "shape": {
+        "rttMs": 0,
+        "uploadMbps": 10000,
+        "downloadMbps": 10000
+      },
+      "content": "high-entropy",
+      "bytes": 4194321,
+      "uploadMs": 184.77833299999998,
+      "downloadMs": 105.10775000000012,
+      "reuseMs": 20.468875000000025,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230690,
+        "connections": 11
+      }
+    },
+    {
+      "shape": {
+        "rttMs": 80,
+        "uploadMbps": 5,
+        "downloadMbps": 20
+      },
+      "content": "compressible",
+      "bytes": 4194321,
+      "uploadMs": 7961.224042000001,
+      "downloadMs": 2153.890792,
+      "reuseMs": 385.212375000001,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230681,
+        "connections": 11
+      }
+    },
+    {
+      "shape": {
+        "rttMs": 80,
+        "uploadMbps": 5,
+        "downloadMbps": 20
+      },
+      "content": "high-entropy",
+      "bytes": 4194321,
+      "uploadMs": 7951.002416000001,
+      "downloadMs": 2103.532332999999,
+      "reuseMs": 385.067750000002,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230689,
+        "connections": 11
+      }
+    },
+    {
+      "shape": {
+        "rttMs": 160,
+        "uploadMbps": 2,
+        "downloadMbps": 10
+      },
+      "content": "compressible",
+      "bytes": 4194321,
+      "uploadMs": 19074.757083000004,
+      "downloadMs": 4135.325790999996,
+      "reuseMs": 723.593915999998,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230690,
+        "connections": 11
+      }
+    },
+    {
+      "shape": {
+        "rttMs": 160,
+        "uploadMbps": 2,
+        "downloadMbps": 10
+      },
+      "content": "high-entropy",
+      "bytes": 4194321,
+      "uploadMs": 19094.351667000003,
+      "downloadMs": 4134.039332999993,
+      "reuseMs": 714.5604999999923,
+      "reusePayloadBytes": 0,
+      "receiptResumeVerified": true,
+      "originalBlake3Verified": true,
+      "wire": {
+        "uploadWireBytes": 4231276,
+        "downloadWireBytes": 4230693,
+        "connections": 11
+      }
+    }
+  ]
+}

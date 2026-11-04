@@ -237,6 +237,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "attuner-object-pack-lab"
+version = "0.1.0"
+dependencies = [
+ "blake3",
+ "libc",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "zstd",
+]
+
+[[package]]
 name = "attuner-platform-windows"
 version = "0.1.0"
 dependencies = [

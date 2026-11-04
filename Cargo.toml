@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sync-core", "crates/sync-client", "crates/platform-windows", "apps/desktop/src-tauri"]
+members = ["crates/sync-core", "crates/sync-client", "crates/platform-windows", "crates/object-pack-lab", "apps/desktop/src-tauri"]
 resolver = "3"
 
 [workspace.package]

@@ -1,0 +1,519 @@
+{
+  "architecture": "aarch64",
+  "decoderWindowLimitBytes": 8388608,
+  "durability": "file sync_all, no-clobber promotion, directory sync_all before SQLite FULL commit; process interruption tested, hardware power loss unqualified",
+  "experiment": "isolated object packs; production format unchanged",
+  "hashBufferBytes": 65536,
+  "maxIndexBytes": 524288,
+  "maxPackFrames": 2048,
+  "os": "macos",
+  "peakProcessRssBytes": 20758528,
+  "results": [
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Legacy",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 10001,
+            "files": 10001,
+            "newObjects": 10001,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 1
+          },
+          "milliseconds": 46725.225083,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 405.727625
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 10001,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 2
+          },
+          "milliseconds": 937.904708,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 380.31408300000004
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 10001,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 3
+          },
+          "milliseconds": 947.01125,
+          "phase": "one-change",
+          "verifyMilliseconds": 385.104
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 100,
+            "files": 10001,
+            "newObjects": 100,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 4
+          },
+          "milliseconds": 1373.334625,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 388.36283399999996
+        }
+      ],
+      "workload": "many-small-and-large-compressible"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Pack",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 10,
+            "files": 10001,
+            "newObjects": 10001,
+            "newPacks": 5,
+            "rawBytes": 175177728,
+            "snapshot": 1
+          },
+          "milliseconds": 1588.886542,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 264.533084
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 10001,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 2
+          },
+          "milliseconds": 788.89075,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 271.671042
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 10001,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 175177728,
+            "snapshot": 3
+          },
+          "milliseconds": 801.681334,
+          "phase": "one-change",
+          "verifyMilliseconds": 264.133
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 10001,
+            "newObjects": 100,
+            "newPacks": 1,
+            "rawBytes": 175177728,
+            "snapshot": 4
+          },
+          "milliseconds": 835.313584,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 263.26412500000004
+        }
+      ],
+      "workload": "many-small-and-large-compressible"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Legacy",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 10001,
+            "files": 10001,
+            "newObjects": 10001,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 1
+          },
+          "milliseconds": 50025.898333,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 673.2852499999999
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 10001,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 2
+          },
+          "milliseconds": 1184.5109579999998,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 388.675833
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 10001,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 3
+          },
+          "milliseconds": 955.450083,
+          "phase": "one-change",
+          "verifyMilliseconds": 389.46333300000003
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 100,
+            "files": 10001,
+            "newObjects": 100,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 4
+          },
+          "milliseconds": 1508.761125,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 396.73575
+        }
+      ],
+      "workload": "many-small-and-large-high-entropy"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Pack",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 14,
+            "files": 10001,
+            "newObjects": 10001,
+            "newPacks": 7,
+            "rawBytes": 175177728,
+            "snapshot": 1
+          },
+          "milliseconds": 1448.4257089999999,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 436.955042
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 10001,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 175177728,
+            "snapshot": 2
+          },
+          "milliseconds": 1056.131958,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 404.56775
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 10001,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 175177728,
+            "snapshot": 3
+          },
+          "milliseconds": 947.723083,
+          "phase": "one-change",
+          "verifyMilliseconds": 373.21583400000003
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 10001,
+            "newObjects": 100,
+            "newPacks": 1,
+            "rawBytes": 175177728,
+            "snapshot": 4
+          },
+          "milliseconds": 991.570375,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 361.962334
+        }
+      ],
+      "workload": "many-small-and-large-high-entropy"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Legacy",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 4,
+            "files": 4,
+            "newObjects": 4,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 1
+          },
+          "milliseconds": 321.143209,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 75.697167
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 4,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 2
+          },
+          "milliseconds": 210.11070800000002,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 75.35491599999999
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 3
+          },
+          "milliseconds": 234.967084,
+          "phase": "one-change",
+          "verifyMilliseconds": 70.682084
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 4
+          },
+          "milliseconds": 235.099,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 97.24962500000001
+        }
+      ],
+      "workload": "large-only-compressible"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Pack",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 4,
+            "newObjects": 4,
+            "newPacks": 1,
+            "rawBytes": 134217728,
+            "snapshot": 1
+          },
+          "milliseconds": 311.242166,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 75.722875
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 4,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 2
+          },
+          "milliseconds": 210.38754200000002,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 75.048584
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 134217728,
+            "snapshot": 3
+          },
+          "milliseconds": 237.701583,
+          "phase": "one-change",
+          "verifyMilliseconds": 70.955541
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 134217728,
+            "snapshot": 4
+          },
+          "milliseconds": 239.54083400000002,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 70.93008400000001
+        }
+      ],
+      "workload": "large-only-compressible"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Legacy",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 4,
+            "files": 4,
+            "newObjects": 4,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 1
+          },
+          "milliseconds": 422.1185,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 81.701542
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 4,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 2
+          },
+          "milliseconds": 214.711042,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 81.177167
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 3
+          },
+          "milliseconds": 271.36587499999996,
+          "phase": "one-change",
+          "verifyMilliseconds": 81.733167
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 1,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 4
+          },
+          "milliseconds": 268.66429200000005,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 81.782042
+        }
+      ],
+      "workload": "large-only-high-entropy"
+    },
+    {
+      "entropy": "deterministic synthetic PRNG; not cryptographic randomness",
+      "format": "Pack",
+      "measurements": [
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 8,
+            "files": 4,
+            "newObjects": 4,
+            "newPacks": 4,
+            "rawBytes": 134217728,
+            "snapshot": 1
+          },
+          "milliseconds": 434.984042,
+          "phase": "first-cold-cas",
+          "verifyMilliseconds": 147.45649999999998
+        },
+        {
+          "capture": {
+            "directoryFlushes": 0,
+            "fileFlushes": 0,
+            "files": 4,
+            "newObjects": 0,
+            "newPacks": 0,
+            "rawBytes": 134217728,
+            "snapshot": 2
+          },
+          "milliseconds": 280.833625,
+          "phase": "unchanged-warm-cas",
+          "verifyMilliseconds": 147.218375
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 134217728,
+            "snapshot": 3
+          },
+          "milliseconds": 325.087542,
+          "phase": "one-change",
+          "verifyMilliseconds": 148.253083
+        },
+        {
+          "capture": {
+            "directoryFlushes": 1,
+            "fileFlushes": 2,
+            "files": 4,
+            "newObjects": 1,
+            "newPacks": 1,
+            "rawBytes": 134217728,
+            "snapshot": 4
+          },
+          "milliseconds": 323.412125,
+          "phase": "one-percent-change",
+          "verifyMilliseconds": 147.38554100000002
+        }
+      ],
+      "workload": "large-only-high-entropy"
+    }
+  ],
+  "schemaVersion": 1,
+  "scope": "synthetic temporary roots; warm OS cache after generation; cold CAS and warm CAS are distinct; no OS cache purge or hardware reset"
+}
