@@ -18,6 +18,6 @@ tar --exclude='*/.next/cache' --exclude='*/__pycache__' -czf .runtime/attuner-st
   packages node_modules infrastructure/staging/run-api.sh infrastructure/staging/run-web.sh \
   infrastructure/staging/run-backup.sh infrastructure/staging/run-monitor.sh \
   infrastructure/staging/run-backup-monitor.sh infrastructure/staging/unlock-credentials.py \
-  package.json pnpm-lock.yaml pnpm-workspace.yaml
+  fixtures/unicode/namespace-v1.json package.json pnpm-lock.yaml pnpm-workspace.yaml
 (cd .runtime && sha256sum attuner-staging-jammy-runtime.tar.gz > attuner-staging-jammy-runtime.tar.gz.sha256)
 git rev-parse HEAD > .runtime/attuner-staging-jammy-runtime.source
