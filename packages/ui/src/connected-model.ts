@@ -127,6 +127,8 @@ export type NativeStatus = {
   error?: string;
 };
 export type NativeBridge = {
+  diagnostics?(): Promise<import('./diagnostics').DiagnosticReport>;
+  exportDiagnostics?(): Promise<{ saved: boolean; revealed: boolean }>;
   status(): Promise<NativeStatus>;
   connect(origin: string, ca: string): Promise<unknown>;
   enroll(name: string): Promise<unknown>;

@@ -20,12 +20,16 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - run: pnpm test:connected
+        env:
+          ATTUNER_QUALIFICATION_PHASE: '4'
       - run: pnpm test:staging -- --docker
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: attuner-connected-ui
-          path: artifacts/phase-3/
+          path: |
+            artifacts/phase-4/web-*.png
+            artifacts/phase-4/web-qualification.json
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: always()

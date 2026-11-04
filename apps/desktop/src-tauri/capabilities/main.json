@@ -3,5 +3,5 @@
   "identifier": "main",
   "description": "Narrow native commands for synthetic fixtures and authenticated Attuner synchronization. No arbitrary filesystem, shell, URL or deep-link event access.",
   "windows": ["main"],
-  "permissions": ["allow-app-info", "allow-local-lab", "allow-connected-sync"]
+  "permissions": ["allow-app-info", "allow-local-lab", "allow-connected-sync", "allow-diagnostics"]
 }

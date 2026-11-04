@@ -39,6 +39,18 @@ pub struct ConnectedState {
     cached: RwLock<Value>,
 }
 impl ConnectedState {
+    pub(crate) fn diagnostic_summary(&self) -> Result<crate::diagnostics::Summary> {
+        let value = self.cached.read().map_err(|_| "Native host unavailable.")?;
+        Ok(crate::diagnostics::Summary {
+            connection_configured: value["connection"].is_object(),
+            device_enrolled: value["device"]["enrolled"].as_bool().unwrap_or(false),
+            enrollment_pending: value["device"]["enrollmentPending"]
+                .as_bool()
+                .unwrap_or(false),
+            busy: self.busy.load(Ordering::Acquire),
+            registered_synthetic_workspaces: value["fixtures"].as_array().map_or(0, Vec::len),
+        })
+    }
     pub fn new(home: PathBuf) -> Result<Arc<Self>> {
         std::fs::create_dir_all(&home).map_err(|_| "Cannot open Attuner application data.")?;
         let db = preferences(&home)?;

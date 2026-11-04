@@ -1506,8 +1506,8 @@ export function Workbench({
                   <Laptop size={35} />
                 </div>
                 <p className="dialog-body-copy">
-                  In Phase 3, install Attuner on your other computer and approve its one-time
-                  pairing code here. Each device will receive its own revocable credential.
+                  Install Attuner on your other computer and approve its one-time pairing code here.
+                  Each device will receive its own revocable credential.
                 </p>
                 <div className="inline-notice">
                   <LockKeyhole size={17} />

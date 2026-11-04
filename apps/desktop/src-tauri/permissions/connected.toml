@@ -2,3 +2,8 @@
 identifier = "allow-connected-sync"
 description = "Verified HTTPS enrollment and typed, foreground operations on registered synthetic fixtures only. Credentials and callback events stay native."
 commands.allow = ["sync_status", "sync_cancel", "sync_connect", "sync_enroll", "sync_finish", "sync_disconnect", "sync_remote", "sync_local", "sync_open_dashboard"]
+
+[[permission]]
+identifier = "allow-diagnostics"
+description = "Preview fixed allowlisted metadata and explicitly export it to a newly minted private temporary folder. No renderer paths, logs, configuration bytes or credentials accepted."
+commands.allow = ["diagnostics_preview", "diagnostics_export"]

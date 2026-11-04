@@ -3,3 +3,4 @@ export { Brand, Badge, Button } from './primitives';
 export { ScanLine, ShieldCheck, Archive, FolderLock, LoaderCircle, FileCode2 } from 'lucide-react';
 export { ConnectedWorkbench } from './connected-workbench';
 export * from './connected-model';
+export type { DiagnosticReport } from './diagnostics';

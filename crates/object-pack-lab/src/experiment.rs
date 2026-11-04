@@ -109,8 +109,10 @@ pub struct Lab {
 }
 impl Lab {
     pub fn new() -> Result<Self> {
+        use std::os::unix::fs::PermissionsExt;
         let root = tempfile::Builder::new()
             .prefix("attuner-pack-lab-")
+            .permissions(fs::Permissions::from_mode(0o700))
             .tempdir()?;
         fs::create_dir(root.path().join("source"))?;
         fs::create_dir(root.path().join("objects"))?;

@@ -16,6 +16,7 @@ import {
   Check,
   ChevronRight,
   CircleCheck,
+  Download,
   FileCode2,
   History,
   House,
@@ -34,6 +35,8 @@ import {
 } from 'lucide-react';
 import { pages, pageLabels, type Page } from '@attuner/shared';
 import { Badge, Brand, Button } from './primitives';
+import { webDiagnostics, type DiagnosticReport } from './diagnostics';
+import { version } from '../package.json';
 import {
   bytes,
   stateLabel,
@@ -140,11 +143,13 @@ function Modal({
   description,
   close,
   children,
+  returnFocus,
 }: {
   title: string;
   description: string;
   close: () => void;
   children: ReactNode;
+  returnFocus?: () => void;
 }) {
   const error = useContext(DialogError);
   return (
@@ -156,7 +161,15 @@ function Modal({
     >
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content className="dialog-content connected-dialog">
+        <Dialog.Content
+          className="dialog-content connected-dialog"
+          onCloseAutoFocus={(event) => {
+            if (returnFocus) {
+              event.preventDefault();
+              returnFocus();
+            }
+          }}
+        >
           <Dialog.Title className="dialog-title">{title}</Dialog.Title>
           <Dialog.Description className="dialog-description">{description}</Dialog.Description>
           {error && (
@@ -272,9 +285,79 @@ export function ConnectedWorkbench({
     [fixtureId, setFixtureId] = useState(''),
     [local, setLocal] = useState<LocalInspection>();
   const [modal, setModal] = useState<
-      'profile' | 'revoke' | 'review' | 'connection' | 'forget' | null
+      | 'profile'
+      | 'renameProfile'
+      | 'revoke'
+      | 'review'
+      | 'connection'
+      | 'forget'
+      | 'diagnostics'
+      | null
     >(null),
     [revoke, setRevoke] = useState<Device>();
+  const [diagnosticReport, setDiagnosticReport] = useState<DiagnosticReport>(),
+    [diagnosticBusy, setDiagnosticBusy] = useState(false),
+    [diagnosticNotice, setDiagnosticNotice] = useState('');
+  const diagnosticTrigger = useRef<HTMLButtonElement>(null);
+  async function openDiagnostics() {
+    setDiagnosticBusy(true);
+    setDiagnosticNotice('');
+    try {
+      if (controller.native && !controller.native.diagnostics)
+        throw new Error('Native diagnostics unavailable');
+      setDiagnosticReport(
+        controller.native?.diagnostics
+          ? await controller.native.diagnostics()
+          : webDiagnostics({
+              connected: authenticated,
+              busy: !!working,
+              profiles: profiles.length,
+              devices: devices.length,
+              snapshots: snapshots.length,
+              jobs: jobs.length,
+              conflicts: needsReview.length,
+            }),
+      );
+      setModal('diagnostics');
+    } catch {
+      setError('Diagnostics are unavailable. No report was exported.');
+    } finally {
+      setDiagnosticBusy(false);
+    }
+  }
+  async function exportDiagnostics() {
+    if (!diagnosticReport) return;
+    setDiagnosticBusy(true);
+    setDiagnosticNotice('');
+    try {
+      if (controller.native) {
+        if (!controller.native.exportDiagnostics) throw new Error('Native diagnostics unavailable');
+        const result = await controller.native.exportDiagnostics();
+        if (!result.saved) throw new Error('Save failed');
+        setDiagnosticNotice(
+          result.revealed
+            ? 'Report saved. Its private folder is open.'
+            : 'Report saved, but the folder could not be revealed. You can copy the reviewed report below.',
+        );
+      } else {
+        const url = URL.createObjectURL(
+          new Blob([JSON.stringify(diagnosticReport, null, 2) + '\n'], {
+            type: 'application/json',
+          }),
+        );
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'attuner-diagnostics.json';
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        setDiagnosticNotice('Report prepared for download. Nothing was sent to Attuner.');
+      }
+    } catch {
+      setDiagnosticNotice('The report could not be saved. You can copy the reviewed report below.');
+    } finally {
+      setDiagnosticBusy(false);
+    }
+  }
   const [review, setReview] = useState<ConflictReview>(),
     [choices, setChoices] = useState<Record<string, 'local' | 'remote'>>({}),
     [reviewJob, setReviewJob] = useState<LocalJob>(),
@@ -678,7 +761,7 @@ export function ConnectedWorkbench({
               </span>
               <LockKeyhole size={13} />
             </div>
-            <small className="connected-synthetic">Phase 3 · Manual synchronization</small>
+            <small className="connected-synthetic">Attuner {version} · Manual sync</small>
           </div>
         </aside>
         <div className="workspace">
@@ -700,7 +783,7 @@ export function ConnectedWorkbench({
                 <LockKeyhole size={13} />
                 Self-hosted & private
               </span>
-              <Badge tone="accent">Connected mode</Badge>
+              <Badge tone="accent">Manual sync</Badge>
             </div>
           </header>
           <main id="main-content" className="main-content" tabIndex={-1}>
@@ -942,7 +1025,9 @@ export function ConnectedWorkbench({
                 {page === 'overview' && (
                   <>
                     <section className="connected-overview">
-                      <div className="connected-health-icon">
+                      <div
+                        className={`connected-health-icon ${needsReview.length ? 'needs-review' : ''}`}
+                      >
                         {needsReview.length ? (
                           <TriangleAlert size={24} />
                         ) : (
@@ -1446,6 +1531,24 @@ export function ConnectedWorkbench({
                 )}
                 {page === 'settings' && (
                   <>
+                    <Panel title="Profile">
+                      <div className="connected-row">
+                        <Layers3 size={19} />
+                        <div className="connected-grow">
+                          <strong>{profile?.name}</strong>
+                          <small>Synthetic installation · Immutable revision history</small>
+                        </div>
+                        {controller.write && profile?.role === 'owner' && (
+                          <Button
+                            variant="ghost"
+                            disabled={working}
+                            onClick={() => setModal('renameProfile')}
+                          >
+                            Rename profile
+                          </Button>
+                        )}
+                      </div>
+                    </Panel>
                     <Panel title="Connection">
                       <div className="connected-row">
                         <LockKeyhole size={19} />
@@ -1537,9 +1640,53 @@ export function ConnectedWorkbench({
               <span className="status-dot" />{' '}
               {authenticated ? 'Authenticated workspace' : 'Self-hosted Attuner'}
             </span>
-            <span>Synthetic data · Real local operations · No automatic apply</span>
+            <span>Synthetic installations · No automatic apply</span>
+            <button
+              className="connected-help"
+              ref={diagnosticTrigger}
+              disabled={diagnosticBusy}
+              onClick={() => void openDiagnostics()}
+            >
+              Help & diagnostics
+            </button>
           </footer>
         </div>
+        {modal === 'diagnostics' && diagnosticReport && (
+          <Modal
+            title="A private diagnostic report"
+            description="App version, safety gates and state counts only. Review before saving. Nothing is sent automatically."
+            returnFocus={() => diagnosticTrigger.current?.focus()}
+            close={() => setModal(null)}
+          >
+            <label className="connected-diagnostic-label">
+              Review your report
+              <textarea
+                className="connected-diagnostic-report"
+                aria-label="Diagnostic report"
+                readOnly
+                rows={13}
+                value={JSON.stringify(diagnosticReport, null, 2)}
+                onFocus={(event) => event.currentTarget.select()}
+              />
+            </label>
+            {diagnosticNotice && (
+              <p className="connected-note" role="status">
+                {diagnosticNotice}
+              </p>
+            )}
+            <div className="dialog-actions">
+              <Button onClick={() => setModal(null)}>Close</Button>
+              <Button
+                variant="primary"
+                disabled={diagnosticBusy}
+                onClick={() => void exportDiagnostics()}
+              >
+                <Download size={15} />
+                {controller.native ? 'Save & show report' : 'Download report'}
+              </Button>
+            </div>
+          </Modal>
+        )}
         {modal === 'profile' && (
           <Modal
             title="A new setup"
@@ -1574,6 +1721,59 @@ export function ConnectedWorkbench({
                 </Button>
                 <Button variant="primary" disabled={busy}>
                   Create profile
+                </Button>
+              </div>
+            </form>
+          </Modal>
+        )}
+        {modal === 'renameProfile' && profile && controller.write && (
+          <Modal
+            title="Rename your profile"
+            description="Your devices, revisions and recovery history stay linked to this setup."
+            close={() => setModal(null)}
+          >
+            <form
+              className="connected-form"
+              onSubmit={(event) => {
+                event.preventDefault();
+                const form = event.currentTarget,
+                  data = new FormData(form),
+                  name = String(data.get('name')),
+                  password = String(data.get('password'));
+                (form.elements.namedItem('password') as HTMLInputElement).value = '';
+                void run(async () => {
+                  await controller.write!('/api/v1/auth/reauthenticate', { password });
+                  await controller.write!(
+                    `/api/v1/profiles/${profile.id}/renames`,
+                    { name, expectedName: profile.name },
+                    crypto.randomUUID(),
+                  );
+                  await loadProfiles();
+                  setModal(null);
+                  setNotice('Profile renamed.');
+                });
+              }}
+            >
+              <label>
+                Profile name
+                <input name="name" defaultValue={profile.name} required maxLength={80} autoFocus />
+              </label>
+              <label>
+                Confirm your password
+                <input
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  maxLength={1024}
+                />
+              </label>
+              <div className="dialog-actions">
+                <Button type="button" onClick={() => setModal(null)}>
+                  Cancel
+                </Button>
+                <Button variant="primary" disabled={working}>
+                  Save name
                 </Button>
               </div>
             </form>
@@ -1915,9 +2115,10 @@ function Connection({
   run: (action: () => Promise<void>) => Promise<void>;
   connected: () => Promise<void>;
 }) {
-  const [origin, setOrigin] = useState(native?.connection?.origin ?? 'https://127.0.0.1:4318'),
+  const [origin, setOrigin] = useState(native?.connection?.origin ?? ''),
     [ca, setCa] = useState(native?.connection?.ca ?? '');
   const [forget, setForget] = useState(false);
+  const [deviceName, setDeviceName] = useState('My desktop');
   const savedOrigin = native?.connection?.origin,
     savedCa = native?.connection?.ca;
   useEffect(() => {
@@ -1935,7 +2136,7 @@ function Connection({
         <br />
         <span>Wherever you play.</span>
       </h2>
-      <p>Connect to your private Attuner server.</p>
+      <p>Connect your private server, then approve this device in your browser.</p>
       {native?.localSupported === false && (
         <p className="connected-note">
           Local file operations await Windows durability qualification. Device enrollment and remote
@@ -1950,7 +2151,7 @@ function Connection({
             await controller.native!.connect(origin, ca);
             const status = await controller.native!.status();
             if (status.device?.enrolled) await connected();
-            else await controller.native!.enroll('My desktop');
+            else await controller.native!.enroll(deviceName);
           });
         }}
       >
@@ -1962,6 +2163,16 @@ function Connection({
             value={origin}
             onChange={(e) => setOrigin(e.target.value)}
             placeholder="https://attuner.example.com"
+          />
+        </label>
+        <label>
+          Device name
+          <input
+            required
+            maxLength={80}
+            value={deviceName}
+            onChange={(event) => setDeviceName(event.target.value)}
+            autoComplete="off"
           />
         </label>
         <details>
@@ -2364,11 +2575,12 @@ function OfflineRecovery({
         onChange={(e) => {
           setId(e.target.value);
           setInspection(undefined);
+          setVerified('');
         }}
       >
         {fixtures.map((f, i) => (
           <option key={f.id} value={f.id}>
-            Synthetic setup {i + 1} · {f.id.slice(0, 8)}
+            Synthetic workspace {i + 1}
           </option>
         ))}
       </select>
@@ -2383,7 +2595,7 @@ function OfflineRecovery({
         Inspect local history
       </Button>
       {inspection?.operations
-        .filter((op) => !['committed', 'rolledBack'].includes(op.state))
+        .filter((op) => !['committed', 'rolledBack', 'recovered'].includes(op.state))
         .map((op) => (
           <div className="connected-row" key={op.id}>
             <span className="connected-grow">
@@ -2426,7 +2638,8 @@ function OfflineRecovery({
         </div>
       ))}
       {verified && (
-        <p role="status" className="connected-note">
+        <p role="status" className="connected-note connected-verification">
+          <CircleCheck size={14} />
           {verified}
         </p>
       )}

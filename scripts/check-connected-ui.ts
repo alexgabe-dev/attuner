@@ -14,6 +14,9 @@ import { DatabaseWorker } from '../packages/database/src/worker.ts';
 import { createSecureApp } from '../apps/api/src/secure-app.ts';
 import { tlsFixture } from '../apps/api/src/testing/tls-fixture.ts';
 const directory = await mkdtemp(join(tmpdir(), 'attuner-connected-ui-'));
+const artifactDirectory =
+  process.env.ATTUNER_QUALIFICATION_PHASE === '4' ? 'artifacts/phase-4' : 'artifacts/phase-3';
+let currentProfileName = 'Violet Citadel · Synthetic';
 const tls = await tlsFixture(),
   db = await DatabaseWorker.open(join(directory, 'attuner.sqlite'));
 const { app, security } = await createSecureApp(db, {
@@ -49,7 +52,7 @@ try {
       setTimeout(() => reject(new Error('Gateway startup timeout.')), 45000).unref(),
     ),
   ]);
-  await mkdir('artifacts/phase-3', { recursive: true });
+  await mkdir(artifactDirectory, { recursive: true });
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     reducedMotion: 'reduce',
@@ -63,7 +66,7 @@ try {
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
   await page.getByRole('button', { name: 'Create profile', exact: true }).click();
-  await page.getByLabel('Profile name', { exact: true }).fill('Violet Citadel · Synthetic');
+  await page.getByLabel('Profile name', { exact: true }).fill(currentProfileName);
   await page.getByRole('button', { name: 'Create profile', exact: true }).last().click();
   await page.getByRole('heading', { name: 'Ready for your first revision', exact: true }).waitFor();
   await page.evaluate(() => document.fonts.ready);
@@ -157,7 +160,7 @@ try {
           `Accessibility at ${width}: ${violations.map((v) => v.id + ':' + v.nodes.map((n) => n.target).join(',')).join(';')}`,
         );
       await page.screenshot({
-        path: `artifacts/phase-3/web-connected-${width}.png`,
+        path: `${artifactDirectory}/web-connected-${width}.png`,
         fullPage: true,
       });
     }
@@ -174,7 +177,7 @@ try {
   await expect(conflicts).toHaveCount(2);
   await conflicts.nth(0).getByRole('radio').first().check();
   await conflicts.nth(1).getByRole('radio').last().check();
-  await page.screenshot({ path: 'artifacts/phase-3/web-conflict-review.png', fullPage: true });
+  await page.screenshot({ path: `${artifactDirectory}/web-conflict-review.png`, fullPage: true });
   await page.getByRole('button', { name: 'Send proposal to device' }).click();
   await expect(page.getByRole('status')).toContainText('Proposal saved');
   await page
@@ -185,7 +188,10 @@ try {
   await expect(page.getByRole('heading', { name: '2 changed files' })).toBeVisible();
   await page.getByRole('button', { name: 'After', exact: true }).first().click();
   await expect(page.locator('.connected-code')).toContainText('Fixture');
-  await page.screenshot({ path: 'artifacts/phase-3/web-snapshot-comparison.png', fullPage: true });
+  await page.screenshot({
+    path: `${artifactDirectory}/web-snapshot-comparison.png`,
+    fullPage: true,
+  });
   await page.locator('aside.sidebar').getByRole('button', { name: 'Devices', exact: true }).click();
   await page.getByLabel('Find a device…').fill('Travel');
   await page.getByRole('button', { name: 'Revoke', exact: true }).click();
@@ -212,10 +218,85 @@ try {
     await page.locator('aside.sidebar').getByRole('button', { name, exact: true }).click();
     await expect(page.getByRole('heading', { name, exact: true, level: 1 })).toBeVisible();
   }
+  await page
+    .locator('aside.sidebar')
+    .getByRole('button', { name: 'Settings', exact: true })
+    .click();
+  await page.getByRole('button', { name: 'Rename profile', exact: true }).click();
+  currentProfileName = 'Violet Citadel · Synthetic Beta';
+  await page.getByLabel('Profile name', { exact: true }).fill(currentProfileName);
+  await page.getByLabel('Confirm your password', { exact: true }).fill(password);
+  await page.getByRole('button', { name: 'Save name', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByLabel('Profile', { exact: true }).locator('option:checked')).toHaveText(
+    currentProfileName,
+  );
+  expect(
+    (await db.query<{ name: string }>('SELECT name FROM profiles WHERE id=?', [profile.id]))[0]
+      ?.name,
+  ).toBe(currentProfileName);
+  expect(await db.query('SELECT id FROM snapshots WHERE profile_id=?', [profile.id])).toHaveLength(
+    2,
+  );
+  await page.screenshot({
+    path: `${artifactDirectory}/web-profile-settings-1440.png`,
+    fullPage: true,
+  });
+  await page.getByRole('button', { name: 'Help & diagnostics', exact: true }).click();
+  const reportText = await page
+    .getByRole('textbox', { name: 'Diagnostic report', exact: true })
+    .inputValue();
+  const diagnostic = JSON.parse(reportText) as Record<string, unknown>;
+  expect(diagnostic.surface).toBe('web');
+  expect(diagnostic.counts).toMatchObject({
+    loadedDevices: 3,
+    loadedSnapshots: 2,
+    loadedConflictReports: 1,
+  });
+  for (const secret of [
+    password,
+    cookie,
+    profile.id,
+    scenario.revokeDeviceId,
+    'Violet Citadel',
+    transport.origin,
+  ])
+    expect(reportText).not.toContain(secret);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    expect(
+      (await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze())
+        .violations,
+    ).toEqual([]);
+  }
+  await page.screenshot({ path: `${artifactDirectory}/web-diagnostics-390.png` });
+  const downloadReady = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download report', exact: true }).click();
+  const download = await downloadReady;
+  expect(download.suggestedFilename()).toBe('attuner-diagnostics.json');
+  const downloaded = await download.createReadStream();
+  if (!downloaded) throw new Error('Diagnostic download was unavailable');
+  const parts: Buffer[] = [];
+  let exportedSize = 0;
+  for await (const part of downloaded) {
+    const bytes = Buffer.from(part);
+    exportedSize += bytes.length;
+    if (exportedSize > 8192) throw new Error('Diagnostic export limit');
+    parts.push(bytes);
+  }
+  expect(JSON.parse(Buffer.concat(parts).toString('utf8'))).toEqual(diagnostic);
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Help & diagnostics', exact: true })).toBeFocused();
+  await page.setViewportSize({ width: 1440, height: 1000 });
   if (errors.length) throw new Error('Browser runtime errors: ' + errors.join(';'));
   const checks = [
     'HTTPS login',
     'profile creation',
+    'owner-authorized profile rename with retained history',
     'three scoped fixture devices',
     'immutable revisions',
     'modification/deletion conflict proposal',
@@ -225,9 +306,10 @@ try {
     '1440/768/390 responsive widths',
     'automated WCAG checks',
     'no browser runtime errors',
+    'reviewed secret-free diagnostic download and accessible responsive dialog',
   ];
   await writeFile(
-    'artifacts/phase-3/web-qualification.json',
+    `${artifactDirectory}/web-qualification.json`,
     JSON.stringify(
       {
         scope: 'isolated synthetic data',
@@ -263,7 +345,7 @@ try {
           continue;
         }
         await page.goto(`https://127.0.0.1:4318/enroll/${enrollment.id}`);
-        await page.getByLabel('Access to Violet Citadel · Synthetic').selectOption('write');
+        await page.getByLabel('Access to ' + currentProfileName).selectOption('write');
         await page.getByLabel('Confirm your password').fill(password);
         await page.getByRole('button', { name: 'Approve device', exact: true }).click();
         const link = page.getByRole('link', { name: 'Return to Attuner' });

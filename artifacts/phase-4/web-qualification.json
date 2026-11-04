@@ -6,6 +6,7 @@
   "checks": [
     "HTTPS login",
     "profile creation",
+    "owner-authorized profile rename with retained history",
     "three scoped fixture devices",
     "immutable revisions",
     "modification/deletion conflict proposal",
@@ -14,12 +15,13 @@
     "all navigation views",
     "1440/768/390 responsive widths",
     "automated WCAG checks",
-    "no browser runtime errors"
+    "no browser runtime errors",
+    "reviewed secret-free diagnostic download and accessible responsive dialog"
   ],
   "viewports": [
     1440,
     768,
     390
   ],
-  "timestamp": "2026-11-04T14:54:54.524Z"
+  "timestamp": "2026-11-04T19:38:57.823Z"
 }

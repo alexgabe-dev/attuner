@@ -4,6 +4,7 @@ import {
   enrollmentRequestSchema,
   enrollmentDecisionSchema,
   tokenRequestSchema,
+  profileRenameSchema,
 } from '@attuner/sync-protocol';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -122,6 +123,53 @@ export function securityRoutes(app: FastifyInstance, security: Security) {
     } catch (error) {
       const prior = await security.receipt(u.id, 'profile.create', key, payloadHash);
       if (prior) return prior;
+      throw error;
+    }
+    return result;
+  });
+  app.post(prefix + '/profiles/:profileId/renames', async (request) => {
+    const user = await security.user(request, true, true),
+      profileId = id.parse((request.params as { profileId: string }).profileId),
+      body = profileRenameSchema.parse(request.body);
+    if ((await security.member(user, profileId)) !== 'owner')
+      throw new ApiError(404, 'NOT_FOUND', 'Resource not found.');
+    const scope = 'profile.rename:' + profileId,
+      key = requestKey(request),
+      payloadHash = sha(JSON.stringify(body)),
+      result = { id: profileId, name: body.name };
+    const prior = await security.receipt(user.id, scope, key, payloadHash);
+    if (prior) return prior;
+    try {
+      await security.db.transaction([
+        security.userGuard(user),
+        {
+          sql: "SELECT 1 FROM profile_members WHERE profile_id=? AND user_id=? AND role='owner'",
+          params: [profileId, user.id],
+          expect: 1,
+          code: 'NOT_FOUND',
+        },
+        {
+          sql: 'SELECT 1 FROM profiles WHERE id=? AND name=?',
+          params: [profileId, body.expectedName],
+          expect: 1,
+          code: 'PROFILE_CHANGED',
+        },
+        { sql: 'UPDATE profiles SET name=? WHERE id=?', params: [body.name, profileId] },
+        {
+          sql: 'INSERT INTO request_receipts VALUES(?,?,?,?,?,?)',
+          params: [user.id, scope, key, payloadHash, JSON.stringify(result), security.now()],
+        },
+        ...security.auditStatements(actor(user), 'profile.renamed', request.id, profileId),
+      ]);
+    } catch (error) {
+      const prior = await security.receipt(user.id, scope, key, payloadHash);
+      if (prior) return prior;
+      if (error instanceof Error && error.message === 'PROFILE_CHANGED')
+        throw new ApiError(
+          409,
+          'PROFILE_CHANGED',
+          'This profile was renamed elsewhere. Refresh and try again.',
+        );
       throw error;
     }
     return result;

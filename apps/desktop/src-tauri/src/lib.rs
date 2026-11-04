@@ -1,4 +1,5 @@
 mod connected;
+mod diagnostics;
 mod lab;
 use serde::Serialize;
 use tauri::Manager;
@@ -49,6 +50,8 @@ pub fn run() {
         .manage(std::sync::Arc::new(lab::LabState::default()))
         .invoke_handler(tauri::generate_handler![
             get_app_info,
+            diagnostics::diagnostics_preview,
+            diagnostics::diagnostics_export,
             connected::sync_status,
             connected::sync_cancel,
             connected::sync_connect,

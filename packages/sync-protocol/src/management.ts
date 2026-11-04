@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { manifestSchema, hashSchema, pathSchema } from './manifest.ts';
 import { headSchema, jobStates } from './publication.ts';
+export const profileRenameSchema = z.strictObject({
+  name: z.string().trim().min(1).max(80),
+  expectedName: z.string().trim().min(1).max(80),
+});
+export type ProfileRename = z.infer<typeof profileRenameSchema>;
 export const decisionSchema = z.strictObject({
   root: z.enum(['account', 'addons', 'character']),
   path: pathSchema,

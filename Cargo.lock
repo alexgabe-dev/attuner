@@ -233,6 +233,7 @@ dependencies = [
  "tauri-plugin-deep-link",
  "tauri-plugin-opener",
  "tauri-plugin-single-instance",
+ "tempfile",
  "uuid",
 ]
 

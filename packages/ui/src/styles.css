@@ -89,6 +89,7 @@ a {
 }
 button:focus-visible,
 input:focus-visible,
+textarea:focus-visible,
 select:focus-visible,
 a:focus-visible {
   outline: 2px solid var(--accent);
@@ -3205,6 +3206,22 @@ button {
 .connected-shell select {
   cursor: pointer;
 }
+.platform-desktop.connected-shell {
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+}
+.platform-desktop.connected-shell .workspace {
+  height: 100%;
+  min-height: 0;
+}
+.platform-desktop.connected-shell .main-content {
+  min-height: 0;
+  overflow-y: auto;
+}
+.platform-desktop.connected-shell .workspace-footer {
+  flex-shrink: 0;
+}
 .connected-profile select {
   width: 100%;
   font-weight: 550;
@@ -3379,6 +3396,57 @@ button {
   border: 1px solid #315743;
   color: #7ccea0;
   flex-shrink: 0;
+}
+.connected-health-icon.needs-review {
+  color: var(--warning);
+  background: #2b2419;
+  border-color: #5b4829;
+}
+.connected-help {
+  border: 0;
+  background: transparent;
+  color: var(--secondary);
+  font: inherit;
+  cursor: pointer;
+  padding: 3px 0;
+}
+.connected-help:hover {
+  color: var(--text);
+}
+.connected-welcome p.connected-verification {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--success);
+}
+.connected-help:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+.connected-diagnostic-label {
+  display: grid;
+  gap: 10px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.connected-diagnostic-report {
+  width: 100%;
+  resize: vertical;
+  min-height: 180px;
+  max-height: 42vh;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  line-height: 1.7;
+}
+.connected-welcome.connected-connect {
+  margin: 12px auto 24px;
+}
+.connected-welcome.connected-connect > .brand {
+  margin-bottom: 16px;
+}
+.connected-welcome.connected-connect h2 {
+  font-size: 32px;
+  letter-spacing: -1.1px;
 }
 .connected-revision {
   margin-left: auto;
@@ -3871,7 +3939,7 @@ button {
   .connected-shell .workspace-footer {
     padding-inline: 20px;
   }
-  .connected-shell .workspace-footer > span:last-child {
+  .connected-shell .workspace-footer > span:nth-of-type(2) {
     display: none;
   }
 }

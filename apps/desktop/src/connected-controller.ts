@@ -18,6 +18,8 @@ export function nativeController(): ConnectedController {
   return {
     read: (request) => serial('sync_remote', { request }),
     native: {
+      diagnostics: () => invoke('diagnostics_preview'),
+      exportDiagnostics: () => invoke('diagnostics_export'),
       status: () => invoke('sync_status'),
       connect: (origin, ca) => serial('sync_connect', { origin, ca }),
       enroll: (name) => serial('sync_enroll', { name }),
