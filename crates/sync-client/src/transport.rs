@@ -12,6 +12,14 @@ pub struct PublicServer {
     pub server_id: String,
     pub protocol_version: u32,
     pub namespace_version: u32,
+    #[serde(default)]
+    pub features: ServerFeatures,
+}
+#[derive(Clone, Debug, Default, serde::Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ServerFeatures {
+    #[serde(default)]
+    pub job_reporting: bool,
 }
 pub struct ServerConnection {
     pub(crate) client: Client,

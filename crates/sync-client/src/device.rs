@@ -69,6 +69,7 @@ pub struct DeviceClient {
     account: String,
     nonce: String,
     storage_failed: Cell<bool>,
+    pub(crate) reported_local: std::collections::BTreeMap<String, String>,
 }
 fn random() -> String {
     let mut bytes = [0u8; 32];
@@ -131,6 +132,7 @@ impl DeviceClient {
             account,
             nonce: String::new(),
             storage_failed: Cell::new(false),
+            reported_local: std::collections::BTreeMap::new(),
         };
         result.save()?;
         Ok(result)
@@ -310,12 +312,12 @@ impl DeviceClient {
             false,
         )?;
         let enrollment: Enrollment = serde_json::from_value(value).map_err(|_| Error::Protocol)?;
-        let url =
-            reqwest::Url::parse(&enrollment.authorization_url).map_err(|_| Error::Protocol)?;
-        if url.origin().ascii_serialization() != self.connection.origin()
-            || url.path() != format!("/enroll/{}", enrollment.enrollment_id)
-            || url.query().is_some()
-            || url.fragment().is_some()
+        if enrollment.authorization_url
+            != format!(
+                "{}/enroll/{}",
+                self.connection.origin(),
+                enrollment.enrollment_id
+            )
             || uuid::Uuid::parse_str(&enrollment.enrollment_id).is_err()
             || enrollment.expires_in > 600
         {
@@ -445,6 +447,26 @@ impl DeviceClient {
         self.credentials.device_id.clear();
         Ok(())
     }
+    /// Forget only this previously verified server's OS entry, without network access.
+    /// This is not server-side revocation and must be presented as such by the host.
+    pub fn erase_saved_credential(
+        origin: &str,
+        server_id: &str,
+        store: &dyn CredentialStore,
+    ) -> Result<()> {
+        let url = reqwest::Url::parse(origin).map_err(|_| Error::Protocol)?;
+        if origin.len() > 512
+            || url.scheme() != "https"
+            || url.origin().ascii_serialization() != origin
+            || uuid::Uuid::parse_str(server_id).is_err()
+        {
+            return Err(Error::Protocol);
+        }
+        let account = blake3::hash(format!("{origin}\0{server_id}").as_bytes())
+            .to_hex()
+            .to_string();
+        store.delete(&account)
+    }
     pub fn erase_local_credential(self) -> Result<()> {
         self.store.delete(&self.account)
     }
@@ -453,4 +475,44 @@ fn sensitive(text: &str) -> Result<reqwest::header::HeaderValue> {
     let mut value = reqwest::header::HeaderValue::from_str(text).map_err(|_| Error::Protocol)?;
     value.set_sensitive(true);
     Ok(value)
+}
+#[cfg(test)]
+mod forgetting_tests {
+    use super::*;
+    use std::sync::Mutex;
+    struct OnlyDelete(Mutex<Vec<String>>);
+    impl CredentialStore for OnlyDelete {
+        fn read(&self, _: &str) -> Result<Option<Zeroizing<Vec<u8>>>> {
+            panic!("Offline forgetting must not read secrets")
+        }
+        fn write(&self, _: &str, _: &[u8]) -> Result<()> {
+            panic!("Offline forgetting must not replace credentials")
+        }
+        fn delete(&self, account: &str) -> Result<()> {
+            self.0.lock().unwrap().push(account.into());
+            Ok(())
+        }
+    }
+    #[test]
+    fn offline_forgetting_deletes_only_the_previously_verified_server_entry() {
+        let store = OnlyDelete(Mutex::new(vec![]));
+        let id = "33333333-3333-4333-8333-333333333333";
+        assert!(DeviceClient::erase_saved_credential("http://unsafe.invalid", id, &store).is_err());
+        assert!(
+            DeviceClient::erase_saved_credential("https://user:secret@safe.invalid", id, &store)
+                .is_err()
+        );
+        assert!(
+            DeviceClient::erase_saved_credential("https://safe.invalid/path", id, &store).is_err()
+        );
+        DeviceClient::erase_saved_credential("https://safe.invalid", id, &store).unwrap();
+        let accounts = store.0.lock().unwrap();
+        assert_eq!(accounts.len(), 1);
+        assert_eq!(
+            accounts[0],
+            blake3::hash(format!("https://safe.invalid\0{id}").as_bytes())
+                .to_hex()
+                .to_string()
+        );
+    }
 }

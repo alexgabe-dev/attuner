@@ -5,7 +5,7 @@ import '@attuner/ui/styles.css';
 export const metadata: Metadata = {
   title: 'Attuner — Your WoW setup. Everywhere.',
   description:
-    'A private, self-hosted World of Warcraft configuration workspace. Phase 1 interactive fixture preview.',
+    'A private, self-hosted World of Warcraft configuration workspace. Secure device management and reviewed configuration synchronization.',
   robots: { index: false, follow: false },
 };
 export default function RootLayout({ children }: { children: React.ReactNode }) {

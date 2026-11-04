@@ -17,6 +17,8 @@
     "@radix-ui/react-dialog": "^1.1.15",
     "@fontsource-variable/inter": "^5.2.8",
     "@fontsource-variable/jetbrains-mono": "^5.2.8",
-    "@attuner/shared": "workspace:*"
+    "@attuner/shared": "workspace:*",
+    "@attuner/sync-protocol": "workspace:*",
+    "tailwindcss": "^4.1.16"
   }
 }

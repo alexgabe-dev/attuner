@@ -644,15 +644,20 @@ fn three_isolated_engines_reconcile_conflicts_offline_edits_corruption_and_faile
             && conflicts[0].change.after.is_some()
             && conflicts[0].remote.is_some()
     );
-    cb.resolve(
-        &conflict.data.id,
-        vec![Decision {
-            root: "account".into(),
-            path: "SavedVariables/WeakAuras.lua".into(),
-            choice: Choice::Local,
-        }],
-    )
-    .unwrap();
+    drop(cb);
+    let proposal=fixture.command(json!({"kind":"propose","jobId":conflict.data.id,"decisions":[{"root":"account","path":"SavedVariables/WeakAuras.lua","choice":"local"}]}));
+    assert_eq!(proposal["status"], 200, "{}", proposal["code"]);
+    assert!(
+        a.pending_proposals(&fixture.profile_id, &conflict.data.id)
+            .is_err()
+    );
+    let mut cb = Coordinator::new(&mut eb, &mut b, &control).unwrap();
+    assert_eq!(
+        cb.accept_web_proposal(&conflict.data.id, proposal["proposalId"].as_str().unwrap())
+            .unwrap()
+            .state,
+        JobState::AwaitingApproval
+    );
     let digest = cb.approval_digest(&conflict.data.id).unwrap();
     cb.publish_approved(&conflict.data.id, &digest, |_, _| {})
         .unwrap();

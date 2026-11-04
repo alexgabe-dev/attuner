@@ -43,6 +43,7 @@ impl<'a> Coordinator<'a> {
     }
     pub(crate) fn save(&mut self, job: &mut SyncJob) -> Result<()> {
         self.engine.save_sync_job(job, self.control)?;
+        let _ = self.client.report_job(self.engine, job, self.control);
         Ok(())
     }
     pub(crate) fn fail(&mut self, job: &mut SyncJob, error: &Error) {
@@ -64,7 +65,9 @@ impl<'a> Coordinator<'a> {
         } else {
             job.state = JobState::Failed;
         }
-        let _ = self.engine.save_sync_job(job, &control);
+        if self.engine.save_sync_job(job, &control).is_ok() {
+            let _ = self.client.report_job(self.engine, job, &control);
+        }
     }
     pub fn prepare(&mut self) -> Result<SyncJob> {
         if self
@@ -93,6 +96,7 @@ impl<'a> Coordinator<'a> {
                 approval_digest: None,
                 published_head: None,
                 decisions: vec![],
+                validated_proposal_id: None,
                 reason: None,
                 resume_state: None,
             },
@@ -256,7 +260,7 @@ impl<'a> Coordinator<'a> {
         }
         Ok(())
     }
-    fn require_fresh_remote(&mut self, job: &SyncJob) -> Result<()> {
+    pub(crate) fn require_fresh_remote(&mut self, job: &SyncJob) -> Result<()> {
         let policy = self.client.fetch_head(&self.binding.profile_id)?;
         self.engine.observe_remote(&policy.head, self.control)?;
         if policy.head != job.data.remote.as_ref().ok_or(Error::Protocol)?.head

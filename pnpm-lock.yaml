@@ -121,6 +121,9 @@ importers:
       '@attuner/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@attuner/sync-protocol':
+        specifier: workspace:*
+        version: link:../../packages/sync-protocol
       '@attuner/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -172,6 +175,9 @@ importers:
       '@attuner/shared':
         specifier: workspace:*
         version: link:../shared
+      '@attuner/sync-protocol':
+        specifier: workspace:*
+        version: link:../sync-protocol
       '@fontsource-variable/inter':
         specifier: ^5.2.8
         version: 5.3.0
@@ -190,6 +196,9 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.3.1(react@19.3.1)
+      tailwindcss:
+        specifier: ^4.1.16
+        version: 4.3.4
 
 packages:
 

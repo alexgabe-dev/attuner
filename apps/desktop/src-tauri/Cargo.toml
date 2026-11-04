@@ -15,3 +15,10 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde.workspace = true
 attuner-sync-core = { path = "../../../crates/sync-core" }
+attuner-sync-client = { version = "0.1.0", path = "../../../crates/sync-client" }
+serde_json = "1"
+rusqlite = "0.41"
+uuid = "1"
+tauri-plugin-deep-link = "2"
+tauri-plugin-opener = "2"
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }

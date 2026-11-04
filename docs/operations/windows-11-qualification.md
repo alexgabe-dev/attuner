@@ -29,7 +29,21 @@ It is an unsigned development build, not an installer or production release. If 
 
 Record screenshots at 100%, 125% and 150% display scaling: window controls, sidebar, profile menu, tables, dialogs, focus rings and narrow-window behavior. Use keyboard navigation and check long device/file names. Confirm the Windows filesystem qualification gate is visible and fixture/apply actions are disabled where unsupported. Do not select a game directory; no installation picker should exist.
 
-Connected HTTPS testing instructions will accompany the completed Phase 3 UI. Use a synthetic development account/profile only. Do not paste credentials into logs or this report.
+The connection screen must explain that Windows file operations await durability qualification. After enrollment, remote devices, revisions, activity, comparisons and proposals are real; local fixture/apply actions remain disabled. Use a synthetic development account/profile only. Do not paste credentials into logs or the report.
+
+For an optional connected check against an already configured private SSH host running the loopback development services, open another normal PowerShell window and keep this tunnel running:
+
+```powershell
+ssh -N -L 4318:127.0.0.1:4318 <your-mac-user>@<your-private-mac-host>
+```
+
+Do not enable SSH or change firewall settings solely through these scripts. If an existing private connection is unavailable, complete the standalone probes and offline UI review first. The macOS service launch commands are in [Phase 3 development](phase-3-development.md). Use `https://127.0.0.1:4318` on the Windows PC. Copy only the public `.runtime/dashboard-ca.pem`, verify its SHA-256 against the macOS copy, and paste that public certificate into Attuner’s custom CA field:
+
+```powershell
+Get-FileHash .\dashboard-ca.pem -Algorithm SHA256
+```
+
+Create a synthetic profile in the HTTPS web dashboard, choose **Connect device** in the portable app, approve only that profile’s permissions in the browser, and return to Attuner. Verify Credential Manager reconnect using the same binary, remote navigation/filters, immutable revision comparison, conflict proposal review, and revocation. Any browser certificate warning requires a deliberate local owner decision; the qualification scripts do not bypass it or install a trusted root. Never enable Windows file application to complete a UI check.
 
 ## Evidence to return
 

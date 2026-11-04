@@ -1,0 +1,39 @@
+{
+  "scope": "isolated synthetic installations only",
+  "platform": "macOS arm64",
+  "source": "local worktree before M8 commit",
+  "typescript": {
+    "passed": 76,
+    "command": "pnpm test"
+  },
+  "rust": {
+    "passed": 67,
+    "ignored": 4,
+    "ignoredExplanation": "three subprocess child harness entrypoints invoked by parent tests; one explicitly measured manual network benchmark",
+    "command": "cargo test --workspace --locked"
+  },
+  "browser": {
+    "passed": 51,
+    "expectedPlatformSkips": 9
+  },
+  "checks": [
+    "pnpm verify",
+    "cargo fmt --all -- --check",
+    "cargo clippy --workspace --all-targets --locked -- -D warnings",
+    "cargo test --workspace --locked",
+    "pnpm --filter @attuner/desktop tauri build --debug"
+  ],
+  "nativeRendered": [
+    "HTTPS enrollment and OS callback",
+    "stored credential reopen",
+    "registered fixture scan and bootstrap review",
+    "explicit publication",
+    "separate explicit local application",
+    "durable acknowledgement",
+    "verified backup history",
+    "device revocation and scoped credential removal",
+    "offline verification in final packaged app"
+  ],
+  "windows11": "pending physical-PC qualification; local filesystem apply disabled",
+  "timestamp": "2026-11-04T10:07:13.751677+00:00"
+}

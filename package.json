@@ -22,7 +22,8 @@
     "db:migrate": "pnpm --filter @attuner/database migrate",
     "build": "pnpm -r build",
     "test:e2e": "playwright test",
-    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e"
+    "verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm test:e2e && pnpm test:connected",
+    "test:connected": "tsx scripts/check-connected-ui.ts"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.0",

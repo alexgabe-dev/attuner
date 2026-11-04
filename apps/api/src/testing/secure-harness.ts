@@ -140,7 +140,7 @@ export class SyntheticDevice {
     this.jwk = key.publicKey.export({ format: 'jwk' }) as Record<string, unknown>;
   }
   proof(
-    h: Harness,
+    h: Pick<Harness, 'origin' | 'now' | 'send'>,
     method: string,
     path: string,
     extra: Record<string, unknown> = {},
@@ -172,7 +172,7 @@ export class SyntheticDevice {
     );
   }
   async send(
-    h: Harness,
+    h: Pick<Harness, 'origin' | 'now' | 'send'>,
     method: string,
     path: string,
     body?: unknown,

@@ -79,6 +79,7 @@ fn prepared() -> Engine {
             approval_digest: None,
             published_head: None,
             decisions: vec![],
+            validated_proposal_id: None,
             reason: None,
             resume_state: None,
         },

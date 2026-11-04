@@ -31,5 +31,12 @@
     "shortDescription": "Your WoW setup. Everywhere.",
     "category": "Utility",
     "icon": ["icons/icon.png", "icons/icon.icns", "icons/icon.ico"]
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["app.attuner.desktop"]
+      }
+    }
   }
 }

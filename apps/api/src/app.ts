@@ -4,7 +4,7 @@ import { DatabaseWorker, type AttunerDatabase } from '@attuner/database';
 import type { ServerTLS } from './tls';
 export function buildApp(
   database: AttunerDatabase | DatabaseWorker,
-  options: { tls?: ServerTLS; secure?: boolean; serverId?: string } = {},
+  options: { tls?: ServerTLS; secure?: boolean; serverId?: string; connectedSync?: boolean } = {},
 ) {
   const app = Fastify({
     logger: false,
@@ -38,7 +38,10 @@ export function buildApp(
     limits: LIMITS,
     features: {
       pairing: !!options.secure,
-      synchronization: false,
+      synchronization: !!options.connectedSync,
+      blobTransfers: !!options.connectedSync,
+      immutableSnapshots: !!options.connectedSync,
+      jobReporting: !!options.connectedSync,
       restore: false,
       activityStreaming: false,
       webAuthentication: !!options.secure,

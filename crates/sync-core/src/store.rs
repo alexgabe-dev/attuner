@@ -15,6 +15,15 @@ impl Snapshot {
         &self.manifest
     }
 }
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SnapshotSummary {
+    pub id: i64,
+    pub label: String,
+    pub created_at: i64,
+    pub files: usize,
+    pub bytes: u64,
+}
 #[cfg(unix)]
 #[derive(Clone, Debug, Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -125,6 +134,27 @@ impl Store {
         }
         tx.commit()?;
         self.snapshot(id)
+    }
+    pub fn history_summaries(&self, control: &crate::Control) -> Result<Vec<SnapshotSummary>> {
+        let mut query = self
+            .connection
+            .prepare("SELECT id FROM snapshots ORDER BY id DESC LIMIT 100")?;
+        let ids = query
+            .query_map([], |r| r.get::<_, i64>(0))?
+            .collect::<std::result::Result<Vec<_>, _>>()?;
+        let mut summaries = Vec::with_capacity(ids.len());
+        for id in ids {
+            control.check()?;
+            let snapshot = self.snapshot(id)?;
+            summaries.push(SnapshotSummary {
+                id,
+                label: snapshot.label,
+                created_at: snapshot.created_at,
+                files: snapshot.manifest.files.len(),
+                bytes: snapshot.manifest.files.iter().map(|f| f.size).sum(),
+            });
+        }
+        Ok(summaries)
     }
     pub fn snapshot(&self, id: i64) -> Result<Snapshot> {
         let row = self

@@ -252,3 +252,167 @@ it('requires verified content, denies revoked publication and prevents acknowled
   await h.web('POST', `/api/v1/devices/${d.deviceId}/revocations`, owner, {});
   expect((await commit(d, pending.sessionId)).status).toBe(401);
 });
+it('reports source comparisons idempotently and binds web choices to an immutable generation', async () => {
+  const d = await enroll(),
+    other = await enroll();
+  const base = await stage(d, await head(d), { 'Review.lua': 'original\r\n' });
+  const baseline = (await commit(d, base.sessionId)).body as Head;
+  const later = await stage(d, baseline, { 'Review.lua': 'remote\r\n' });
+  const remote = (await commit(d, later.sessionId)).body as Head;
+  const local: Manifest = {
+    ...base.manifest,
+    files: [{ ...base.manifest.files[0]!, hash: await blake3('local\r\n'), size: 7 }],
+  };
+  const id = randomUUID(),
+    path = `/api/v1/profiles/${profileId}/jobs/${id}`;
+  const body = {
+    sourceGeneration: 1,
+    state: 'conflictReview',
+    localManifest: local,
+    localManifestHash: await manifestDigest(local),
+    baselineSnapshotId: baseline.snapshotId,
+    remoteHead: remote,
+    publishedHead: null,
+    sessionId: null,
+    candidateManifestHash: null,
+    validatedProposalId: null,
+    reason: null,
+  };
+  expect((await d.send(h, 'PUT', path, body)).status).toBe(200);
+  expect((await d.send(h, 'PUT', path, { ...body, localManifest: null })).status).toBe(200);
+  expect(
+    (await d.send(h, 'PUT', path, { ...body, reason: 'different same-generation payload' })).body
+      .code,
+  ).toBe('STALE_REPORT');
+  expect((await other.send(h, 'PUT', path, body)).status).toBe(404);
+  const comparison = await h.web('GET', path + '/conflicts', owner);
+  expect(comparison.status).toBe(200);
+  expect(comparison.body.conflicts as unknown[]).toHaveLength(1);
+  const proposal = {
+    sourceGeneration: 1,
+    localManifestHash: body.localManifestHash,
+    remoteHead: remote,
+    decisions: [{ root: 'account', path: 'Review.lua', choice: 'local' }],
+  };
+  expect(
+    (await h.web('POST', path + '/proposals', owner, { ...proposal, decisions: [] })).body.code,
+  ).toBe('INVALID_DECISIONS');
+  const p = await h.web('POST', path + '/proposals', owner, proposal);
+  expect(p.status).toBe(200);
+  expect((await other.send(h, 'GET', path + '/proposals')).status).toBe(404);
+  expect((await d.send(h, 'GET', path + '/proposals')).body.proposals as unknown[]).toHaveLength(1);
+  const duplicate = await h.web('POST', path + '/proposals', owner, proposal);
+  expect(duplicate.status).toBe(200);
+  expect(
+    (
+      await h.web(
+        'POST',
+        `/api/v1/profiles/${profileId}/proposals/${duplicate.body.proposalId}/withdrawals`,
+        owner,
+        {},
+      )
+    ).status,
+  ).toBe(200);
+  expect((await d.send(h, 'GET', path + '/proposals')).body.proposals as unknown[]).toHaveLength(0);
+  const p2 = await h.web('POST', path + '/proposals', owner, proposal);
+  expect(
+    (
+      await d.send(h, 'PUT', path, {
+        ...body,
+        sourceGeneration: 2,
+        state: 'awaitingApproval',
+        localManifest: null,
+        candidateManifestHash: p2.body.candidateManifestHash,
+        validatedProposalId: p2.body.proposalId,
+      })
+    ).status,
+  ).toBe(200);
+  expect((await h.web('POST', path + '/proposals', owner, proposal)).body.code).toBe(
+    'REVIEW_MOVED',
+  );
+  const rows = await h.db.query<{ state: string }>(
+    'SELECT state FROM review_proposals WHERE id=?',
+    [p2.body.proposalId as string],
+  );
+  expect(rows[0]!.state).toBe('validated');
+  expect(
+    (await h.db.query("SELECT 1 FROM audit_events WHERE type='proposal.validated'")).length,
+  ).toBeGreaterThan(0);
+});
+it('rejects unsafe or unscoped reports and requires the full capture after a cache miss', async () => {
+  const d = await enroll(),
+    id = randomUUID(),
+    manifest: Manifest = { protocolVersion: 1, profileId, policyVersion: 1, files: [] };
+  const body = {
+    sourceGeneration: 1,
+    state: 'offline',
+    localManifest: null,
+    localManifestHash: await manifestDigest(manifest),
+    baselineSnapshotId: null,
+    remoteHead: null,
+    publishedHead: null,
+    sessionId: null,
+    candidateManifestHash: null,
+    validatedProposalId: null,
+    reason: null,
+  };
+  const path = `/api/v1/profiles/${profileId}/jobs/${id}`;
+  expect((await d.send(h, 'PUT', path, body)).status).toBe(428);
+  const unsafe = {
+    ...manifest,
+    files: [
+      {
+        root: 'account',
+        path: '../outside.lua',
+        hash: 'a'.repeat(64),
+        size: 1,
+        group: 'a'.repeat(64),
+      },
+    ],
+  };
+  expect((await d.send(h, 'PUT', path, { ...body, localManifest: unsafe })).status).toBe(400);
+  expect(
+    (
+      await d.send(h, 'PUT', path, {
+        ...body,
+        localManifest: manifest,
+        localManifestHash: 'a'.repeat(64),
+      })
+    ).body.code,
+  ).toBe('MANIFEST_HASH_MISMATCH');
+  expect((await d.send(h, 'PUT', path, { ...body, localManifest: manifest })).status).toBe(200);
+  const p = await h.web(
+    'POST',
+    '/api/v1/profiles',
+    owner,
+    { name: 'Unscoped review profile' },
+    { 'idempotency-key': randomUUID() },
+  );
+  expect((await d.send(h, 'GET', `/api/v1/profiles/${p.body.id}/jobs`)).status).toBe(404);
+  expect(
+    (await d.send(h, 'PUT', path, { ...body, sourceGeneration: 2, state: 'cancelled' })).status,
+  ).toBe(200);
+  expect((await d.send(h, 'PUT', path, { ...body, sourceGeneration: 3 })).body.code).toBe(
+    'REPORT_CLOSED',
+  );
+});
+it('previews only authorized verified snapshot bytes without interpreting file paths', async () => {
+  const d = await enroll(),
+    contents = 'Preserve = { line = "exact" }\r\n';
+  const s = await stage(d, await head(d), {
+    'Preview.lua': contents,
+    'Binary.lua': '\u0000binary',
+  });
+  const committed = (await commit(d, s.sessionId)).body as Head;
+  const path = `/api/v1/profiles/${profileId}/snapshots/${committed.snapshotId}/preview`;
+  const view = await h.web('GET', path + '?root=account&path=Preview.lua', owner);
+  expect(view.status).toBe(200);
+  expect(view.body.text).toBe(contents);
+  expect(view.body.truncated).toBe(false);
+  expect((await d.send(h, 'GET', path + '?root=account&path=Binary.lua')).body.kind).toBe('binary');
+  expect((await h.web('GET', path + '?root=account&path=..%2Foutside', owner)).status).toBe(404);
+  expect((await h.send('GET', path + '?root=account&path=Preview.lua')).status).toBe(401);
+  expect(
+    (await h.db.query("SELECT 1 FROM audit_events WHERE type='snapshot.preview'")).length,
+  ).toBeGreaterThan(0);
+});

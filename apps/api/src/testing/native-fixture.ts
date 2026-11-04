@@ -57,6 +57,8 @@ for await (const line of lines) {
     enrollmentId?: string;
     deviceId?: string;
     hash?: string;
+    jobId?: string;
+    decisions?: unknown;
   };
   if (command.kind === 'approve') {
     const response = await h.web(
@@ -92,6 +94,35 @@ for await (const line of lines) {
       });
     });
     process.stdout.write(JSON.stringify({ resumed: true }) + '\n');
+  } else if (command.kind === 'propose') {
+    const rows = await h.db.query<{
+      source_generation: number;
+      local_manifest_hash: string;
+      remote_head: string;
+    }>('SELECT * FROM device_sync_jobs WHERE id=?', [command.jobId!]);
+    if (!rows[0])
+      process.stdout.write(JSON.stringify({ status: 404, code: 'REPORT_MISSING' }) + '\n');
+    else {
+      const row = rows[0];
+      const response = await h.web(
+        'POST',
+        `/api/v1/profiles/${profileId}/jobs/${command.jobId}/proposals`,
+        session,
+        {
+          sourceGeneration: row.source_generation,
+          localManifestHash: row.local_manifest_hash,
+          remoteHead: JSON.parse(row.remote_head),
+          decisions: command.decisions,
+        },
+      );
+      process.stdout.write(
+        JSON.stringify({
+          status: response.status,
+          code: response.body.code,
+          proposalId: response.body.proposalId,
+        }) + '\n',
+      );
+    }
   } else if (command.kind === 'loseCommitReply') {
     loseCommitReply = true;
     process.stdout.write(JSON.stringify({ armed: true }) + '\n');
@@ -100,11 +131,16 @@ for await (const line of lines) {
     process.stdout.write(JSON.stringify({ changed: true }) + '\n');
   } else if (command.kind === 'counts') {
     const devices = await h.db.query<{ n: number }>('SELECT count(*) AS n FROM devices');
+    const reports = await h.db.query<{ n: number }>('SELECT count(*) AS n FROM device_sync_jobs');
     const credentials = await h.db.query<{ n: number }>(
       'SELECT count(*) AS n FROM device_credentials',
     );
     process.stdout.write(
-      JSON.stringify({ devices: devices[0]!.n, credentials: credentials[0]!.n }) + '\n',
+      JSON.stringify({
+        devices: devices[0]!.n,
+        credentials: credentials[0]!.n,
+        reports: reports[0]!.n,
+      }) + '\n',
     );
   } else if (command.kind === 'stop') {
     break;

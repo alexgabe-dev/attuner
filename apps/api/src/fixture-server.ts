@@ -11,6 +11,7 @@ await copyFile(fixture.caPath, join(directory, 'development-ca.pem'));
 const database = await DatabaseWorker.open(join(directory, 'attuner.sqlite'));
 const { app } = await createSecureApp(database, {
   tls: fixture.tls,
+  ...(process.env.ATTUNER_PUBLIC_ORIGIN ? { publicOrigin: process.env.ATTUNER_PUBLIC_ORIGIN } : {}),
   blobDirectory: join(directory, 'blobs'),
   deliveryKey: ephemeralDevelopmentDeliveryKey(),
 });

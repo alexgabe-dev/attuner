@@ -28,10 +28,12 @@ type Candidate = {
 type Snapshot = { snapshotId: string; revision: number; manifestHash: string };
 export function publicationRoutes(app: FastifyInstance, security: Security, storage: BlobStorage) {
   async function reader(request: FastifyRequest, reply: FastifyReply): Promise<User | Device> {
+    if (request.managementPrincipal) return request.managementPrincipal;
     const actor = request.headers.authorization
       ? await security.device(request, reply)
       : await security.user(request);
     await security.member(actor, profile(request));
+    request.managementPrincipal = actor;
     return actor;
   }
   async function result(snapshotId: string, profileId: string) {
@@ -42,6 +44,14 @@ export function publicationRoutes(app: FastifyInstance, security: Security, stor
     if (!rows[0]) throw new ApiError(404, 'NOT_FOUND', 'Snapshot not found.');
     return rows[0];
   }
+  const boundedRead = {
+    onRequest: async (request: FastifyRequest, reply: FastifyReply) => {
+      await reader(request, reply);
+      const release = storage.lease();
+      reply.raw.once('finish', release);
+      reply.raw.once('close', release);
+    },
+  };
   app.get(prefix + '/head', async (request, reply) => {
     await reader(request, reply);
     const rows = await security.db.query<{
@@ -78,7 +88,7 @@ export function publicationRoutes(app: FastifyInstance, security: Security, stor
       nextBefore: rows.length === 200 ? rows[rows.length - 1]!.revision : null,
     };
   });
-  app.get(prefix + '/snapshots/:snapshotId', async (request, reply) => {
+  app.get(prefix + '/snapshots/:snapshotId', boundedRead, async (request, reply) => {
     await reader(request, reply);
     const profileId = profile(request),
       snapshotId = z.uuid().parse((request.params as { snapshotId: string }).snapshotId),

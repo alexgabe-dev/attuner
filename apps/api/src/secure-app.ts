@@ -6,6 +6,7 @@ import type { ServerTLS } from './tls.ts';
 import { Security } from './security/service.ts';
 import { securityRoutes } from './security/routes.ts';
 import { BlobStorage } from './sync/storage.ts';
+import { managementRoutes } from './sync/management.ts';
 import { publicationRoutes } from './sync/publication.ts';
 import { syncRoutes } from './sync/routes.ts';
 import { ApiError } from './security/primitives.ts';
@@ -21,7 +22,12 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
   const settings = await database.query<{ value: string }>(
     "SELECT value FROM server_settings WHERE key='server_id'",
   );
-  const app = buildApp(database, { tls: options.tls, secure: true, serverId: settings[0]!.value });
+  const app = buildApp(database, {
+    tls: options.tls,
+    secure: true,
+    serverId: settings[0]!.value,
+    connectedSync: !!options.blobDirectory,
+  });
   if (options.publicOrigin) {
     const url = new URL(options.publicOrigin);
     if (
@@ -55,6 +61,8 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
       DEVICE_REVOKED: [401, 'DEVICE_REVOKED'],
       ENROLLMENT_CLOSED: [409, 'ENROLLMENT_CLOSED'],
       REFRESH_MOVED: [409, 'REFRESH_MOVED'],
+      STALE_REPORT: [409, 'STALE_REPORT'],
+      REVIEW_MOVED: [409, 'REVIEW_MOVED'],
       HEAD_MOVED: [409, 'HEAD_MOVED'],
       BLOBS_MISSING: [409, 'BLOBS_MISSING'],
       SESSION_COMMITTED: [409, 'SESSION_COMMITTED'],
@@ -143,6 +151,7 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
     await storage.initialize();
     syncRoutes(app, security, storage);
     publicationRoutes(app, security, storage);
+    managementRoutes(app, security, storage);
   }
   return { app, security };
 }

@@ -31,6 +31,7 @@ fn job() -> SyncJob {
             approval_digest: None,
             published_head: None,
             decisions: vec![],
+            validated_proposal_id: None,
             reason: None,
             resume_state: None,
         },
@@ -48,6 +49,13 @@ fn bound_synthetic_identity_is_persisted_without_rewriting_legacy_history() {
     assert_eq!(
         legacy.snapshot(snap.id, &c).unwrap().manifest(),
         snap.manifest()
+    );
+    let summaries = legacy.snapshot_summaries(&c).unwrap();
+    assert_eq!(summaries.len(), 1);
+    assert_eq!(summaries[0].files, snap.manifest().files.len());
+    assert_eq!(
+        summaries[0].bytes,
+        snap.manifest().files.iter().map(|f| f.size).sum::<u64>()
     );
     let legacy_path = legacy.path().to_owned();
     drop(legacy);
@@ -86,8 +94,13 @@ fn observed_heads_reject_rollback_and_equivocation_and_jobs_use_optimistic_gener
     changed.manifest_hash = Some("b".repeat(64));
     assert!(engine.observe_remote(&changed, &c).is_err());
     engine.observe_remote(&head, &c).unwrap();
+    assert!(engine.active_sync_job(&c).unwrap().is_none());
     let mut first = job();
     engine.save_sync_job(&mut first, &c).unwrap();
+    assert_eq!(
+        engine.active_sync_job(&c).unwrap().unwrap().data.id,
+        first.data.id
+    );
     let mut stale = first.clone();
     first.state = JobState::Fetching;
     engine.save_sync_job(&mut first, &c).unwrap();
@@ -103,7 +116,12 @@ fn observed_heads_reject_rollback_and_equivocation_and_jobs_use_optimistic_gener
     assert_eq!(loaded.state, JobState::Fetching);
     loaded.state = JobState::Cancelled;
     engine.save_sync_job(&mut loaded, &c).unwrap();
+    assert!(engine.active_sync_job(&c).unwrap().is_none());
     engine.save_sync_job(&mut second, &c).unwrap();
+    assert_eq!(
+        engine.active_sync_job(&c).unwrap().unwrap().data.id,
+        second.data.id
+    );
     assert!(engine.remote_baseline(&c).unwrap().is_none());
     drop(engine);
     std::fs::remove_dir_all(path).unwrap();

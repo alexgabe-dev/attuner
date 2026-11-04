@@ -177,6 +177,11 @@ impl Engine {
         let _ = control.timed(crate::Point::CaptureDatabase, 0, "", database_start);
         Ok(snapshot)
     }
+    pub fn snapshot_summaries(&self, control: &Control) -> Result<Vec<crate::SnapshotSummary>> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        self.store.history_summaries(control)
+    }
     pub fn snapshots(&self, control: &Control) -> Result<Vec<Snapshot>> {
         control.check()?;
         let _lock = self.workspace.lock()?;

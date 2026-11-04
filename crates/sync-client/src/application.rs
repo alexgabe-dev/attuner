@@ -38,7 +38,9 @@ impl Coordinator<'_> {
             self.fail(&mut job, &error);
             return Err(error);
         }
-        Ok(self.engine.sync_job(id, self.control)?)
+        let current = self.engine.sync_job(id, self.control)?;
+        let _ = self.client.report_job(self.engine, &current, self.control);
+        Ok(current)
     }
     fn apply(
         &mut self,
@@ -136,6 +138,10 @@ impl Coordinator<'_> {
                         &acknowledgement.head,
                         self.control,
                     )?;
+                    if let Ok(current) = self.engine.sync_job(&acknowledgement.job_id, self.control)
+                    {
+                        let _ = self.client.report_job(self.engine, &current, self.control);
+                    }
                     delivered += 1;
                 }
                 Err(error) => {

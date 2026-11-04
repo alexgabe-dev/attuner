@@ -288,6 +288,37 @@ mod tests {
         }
     }
     #[test]
+    fn shared_management_comparison_fixtures_match_typescript() {
+        let fixtures: serde_json::Value =
+            serde_json::from_str(include_str!("../../../fixtures/protocol/comparisons.json"))
+                .unwrap();
+        for fixture in fixtures.as_array().unwrap() {
+            let baseline: Manifest = serde_json::from_value(fixture["baseline"].clone()).unwrap();
+            let local: Manifest = serde_json::from_value(fixture["local"].clone()).unwrap();
+            let remote: Manifest = serde_json::from_value(fixture["remote"].clone()).unwrap();
+            let mut receipt = receipt(local);
+            receipt.coverage.roots = vec!["account".into(), "addons".into()];
+            let comparison = three_way(&baseline, &receipt, &remote).unwrap();
+            let paths: Vec<_> = comparison
+                .conflicts
+                .iter()
+                .map(|c| format!("{}/{}", c.change.root, c.change.path))
+                .collect();
+            assert_eq!(
+                serde_json::to_value(paths).unwrap(),
+                fixture["conflictPaths"],
+                "{}",
+                fixture["name"]
+            );
+            assert_eq!(
+                serde_json::to_value(comparison.merged).unwrap(),
+                fixture["merged"],
+                "{}",
+                fixture["name"]
+            );
+        }
+    }
+    #[test]
     fn explicit_modification_deletion_choices_preserve_selected_variants() {
         use crate::synchronization::{Choice, Decision};
         let base = manifest(Some('a'));

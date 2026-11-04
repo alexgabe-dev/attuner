@@ -184,6 +184,8 @@ pub struct JobData {
     pub approval_digest: Option<String>,
     pub published_head: Option<RemoteHead>,
     pub decisions: Vec<Decision>,
+    #[serde(default)]
+    pub validated_proposal_id: Option<String>,
     pub reason: Option<String>,
     pub resume_state: Option<JobState>,
 }
@@ -336,6 +338,11 @@ impl Engine {
         let binding = self.remote_binding_inner()?.ok_or(Error::Coverage)?;
         if !uuid(&job.data.id)
             || !uuid(&job.data.request_id)
+            || job
+                .data
+                .validated_proposal_id
+                .as_deref()
+                .is_some_and(|id| !uuid(id))
             || job.data.decisions.len() > 100000
             || job.data.reason.as_ref().is_some_and(|v| v.len() > 4096)
             || job.data.session_id.as_deref().is_some_and(|id| !uuid(id))
@@ -453,6 +460,14 @@ impl Engine {
         control.check()?;
         let _lock = self.workspace.lock()?;
         load_job(&self.store.connection, id)
+    }
+    /// Native hosts inspect the single active job without loading retained history payloads.
+    pub fn active_sync_job(&self, control: &Control) -> Result<Option<SyncJob>> {
+        control.check()?;
+        let _lock = self.workspace.lock()?;
+        let id:Option<String>=self.store.connection.query_row("SELECT id FROM sync_jobs WHERE state NOT IN ('complete','failed','cancelled') LIMIT 1",[],|r|r.get(0)).optional()?;
+        id.map(|id| load_job(&self.store.connection, &id))
+            .transpose()
     }
     pub fn sync_jobs(&self, control: &Control) -> Result<Vec<SyncJob>> {
         control.check()?;

@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { createPrivateKey, X509Certificate } from 'node:crypto';
 export type ServerTLS = { key: Buffer; cert: Buffer; passphrase: string; minVersion: 'TLSv1.2' };
-export async function loadTLS(env: NodeJS.ProcessEnv = process.env): Promise<ServerTLS> {
+export async function loadTLS(
+  env: Readonly<Record<string, string | undefined>> = process.env,
+): Promise<ServerTLS> {
   const keyPath = env.ATTUNER_TLS_KEY,
     certPath = env.ATTUNER_TLS_CERT,
     passphrase = env.ATTUNER_TLS_PASSPHRASE;

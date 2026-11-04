@@ -94,4 +94,32 @@ describe('reviewed SQLite foundation migration', () => {
       rmSync(folder, { recursive: true, force: true });
     }
   });
+  it('retains immutable review decisions and one pending proposal per source job', () => {
+    const s = seed();
+    s.prepare("INSERT INTO web_users VALUES('u','synthetic-owner','test-hash',1)").run();
+    s.prepare(
+      "INSERT INTO device_sync_jobs VALUES('j','p','d',1,'conflictReview','{}',?,NULL,NULL,NULL,NULL,NULL,?,NULL,1)",
+    ).run('a'.repeat(64), 'b'.repeat(64));
+    const add = s.prepare(
+      "INSERT INTO review_proposals VALUES(?,'j','u',1,?,'{}','[]',?,'pending',1)",
+    );
+    add.run('proposal', 'a'.repeat(64), 'b'.repeat(64));
+    expect(() => add.run('other', 'a'.repeat(64), 'b'.repeat(64))).toThrow(/UNIQUE/);
+    expect(() =>
+      s
+        .prepare(
+          'UPDATE review_proposals SET decisions=\'[{"choice":"remote"}]\' WHERE id=\'proposal\'',
+        )
+        .run(),
+    ).toThrow(/immutable/);
+    expect(() => s.prepare("DELETE FROM review_proposals WHERE id='proposal'").run()).toThrow(
+      /retained/,
+    );
+    expect(() =>
+      s.prepare("UPDATE device_sync_jobs SET profile_id='p' WHERE id='j'").run(),
+    ).toThrow(/immutable/);
+    s.prepare("UPDATE review_proposals SET state='withdrawn' WHERE id='proposal'").run();
+    add.run('other', 'a'.repeat(64), 'b'.repeat(64));
+    expect(s.pragma('foreign_key_check')).toEqual([]);
+  });
 });

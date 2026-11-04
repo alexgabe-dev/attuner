@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 test('desktop browser clearly disables native local access', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop-shell', 'The local lab is desktop-specific.');
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await page.getByRole('button', { name: 'Local engine', exact: true }).click();
   await expect(
     page.getByRole('heading', { name: 'Open the native app to use the local engine.' }),
@@ -61,7 +61,7 @@ test('local lab UI consumes the native command contract', async ({ page }, testI
       },
     });
   });
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await page.getByRole('button', { name: 'Local engine', exact: true }).click();
   await page.getByRole('button', { name: 'Create fixture workspace' }).click();
   await expect(page.getByRole('button', { name: 'Capture snapshot' })).toBeDisabled();

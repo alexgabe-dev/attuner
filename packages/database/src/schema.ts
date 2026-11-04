@@ -610,3 +610,61 @@ export const profileBlobChunks = sqliteTable(
     ),
   ],
 );
+export const deviceSyncJobs = sqliteTable(
+  'device_sync_jobs',
+  {
+    id: id(),
+    profileId: text('profile_id')
+      .notNull()
+      .references(() => profiles.id),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id),
+    sourceGeneration: integer('source_generation').notNull(),
+    state: text('state').notNull(),
+    localManifest: text('local_manifest').notNull(),
+    localManifestHash: text('local_manifest_hash').notNull(),
+    baselineSnapshotId: text('baseline_snapshot_id'),
+    remoteHead: text('remote_head'),
+    publishedHead: text('published_head'),
+    sessionId: text('session_id').references(() => syncSessions.id),
+    candidateManifestHash: text('candidate_manifest_hash'),
+    payloadHash: text('payload_hash').notNull(),
+    reason: text('reason'),
+    receivedAt: integer('received_at').notNull(),
+  },
+  (t) => [
+    foreignKey({
+      columns: [t.profileId, t.baselineSnapshotId],
+      foreignColumns: [snapshots.profileId, snapshots.id],
+    }),
+    check(
+      'source_generation_safe',
+      sql`${t.sourceGeneration}>=1 AND ${t.sourceGeneration}<=9007199254740991`,
+    ),
+    check('reported_manifest_json', sql`json_valid(${t.localManifest})`),
+  ],
+);
+export const reviewProposals = sqliteTable(
+  'review_proposals',
+  {
+    id: id(),
+    jobId: text('job_id')
+      .notNull()
+      .references(() => deviceSyncJobs.id),
+    userId: text('user_id')
+      .notNull()
+      .references(() => webUsers.id),
+    sourceGeneration: integer('source_generation').notNull(),
+    localManifestHash: text('local_manifest_hash').notNull(),
+    remoteHead: text('remote_head').notNull(),
+    decisions: text('decisions').notNull(),
+    candidateManifestHash: text('candidate_manifest_hash').notNull(),
+    state: text('state').notNull(),
+    createdAt: created(),
+  },
+  (t) => [
+    check('proposal_state', sql`${t.state} IN ('pending','validated','withdrawn','superseded')`),
+    index('job_proposals').on(t.jobId, t.createdAt),
+  ],
+);

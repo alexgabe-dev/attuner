@@ -57,6 +57,13 @@
       "when": 1793747002215,
       "tag": "0007_verified_ranges",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1793747573625,
+      "tag": "0008_management_reviews",
+      "breakpoints": true
     }
   ]
 }

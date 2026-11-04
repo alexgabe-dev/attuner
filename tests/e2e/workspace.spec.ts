@@ -19,7 +19,7 @@ async function navigate(page: Page, name: string) {
 test('all views navigate, keep the fixture label and fit the viewport', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
-  await page.goto('/');
+  await page.goto('/?demo=1');
   for (const [link, heading] of [
     ['Activity', 'Activity'],
     ['Snapshots', 'Snapshots'],
@@ -45,7 +45,7 @@ test('all views navigate, keep the fixture label and fit the viewport', async ({
 test('five scenarios have honest distinct status and conflicts survive navigation', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   for (const [scenario, title] of [
     ['pending', 'A few changes to bring along.'],
     ['offline', 'Your MacBook is taking a break.'],
@@ -70,7 +70,7 @@ test('five scenarios have honest distinct status and conflicts survive navigatio
   await expect(page.getByRole('heading', { name: 'Everything is in tune.' })).toBeVisible();
 });
 test('activity filtering, empty recovery and detail dialogs work', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Activity');
   await page.getByLabel('Filter by device').selectOption('MacBook Pro');
   await expect(page.getByText('2 events', { exact: true })).toBeVisible();
@@ -88,7 +88,7 @@ test('activity filtering, empty recovery and detail dialogs work', async ({ page
 test('snapshot selection controls comparison and restore is explicitly read-only', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Snapshots');
   await page.getByRole('checkbox', { name: 'Compare revision 4891' }).uncheck();
   await expect(page.getByRole('button', { name: 'Compare 2 revisions' })).toBeDisabled();
@@ -102,7 +102,7 @@ test('snapshot selection controls comparison and restore is explicitly read-only
   await expect(page.getByRole('button', { name: 'Restore · Phase 5' })).toBeDisabled();
 });
 test('diff files, modes, search and swap change the comparison', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Diff Explorer');
   await page.getByRole('button', { name: 'Bartender4.lua', exact: true }).click();
   await expect(page.locator('.diff-file-heading')).toContainText('Bartender4.lua');
@@ -120,7 +120,7 @@ test('diff files, modes, search and swap change the comparison', async ({ page }
   await expect(page.getByText('No changes', { exact: true })).toBeVisible();
 });
 test('addon category and text filters compose', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Addons 132');
   await page.getByLabel('Filter addon category').selectOption('Combat');
   await expect(page.locator('tbody tr')).toHaveCount(3);
@@ -133,7 +133,7 @@ test('addon category and text filters compose', async ({ page }) => {
 test('device details lead to filtered history and pairing does not mint credentials', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Devices 2');
   await page.getByRole('button', { name: /MacBook Pro.*macOS/ }).click();
   await expect(page.getByRole('dialog')).toContainText('No real credentials issued');
@@ -147,7 +147,7 @@ test('device details lead to filtered history and pairing does not mint credenti
 test('sync progresses, cancels safely, and never invents an offline acknowledgement', async ({
   page,
 }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await page.getByLabel('Demo scenario', { exact: true }).selectOption('pending');
   await page.getByRole('button', { name: 'Sync demo', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Stop demo' })).toBeVisible();
@@ -165,7 +165,7 @@ test('sync progresses, cancels safely, and never invents an offline acknowledgem
   await expect(page.locator('.devices-panel')).toContainText('Offline');
 });
 test('preferences save, discard and affect compact rendering', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await navigate(page, 'Settings');
   await expect(page.getByRole('button', { name: 'Save preferences' })).toBeDisabled();
   await page.getByRole('switch', { name: /Compact activity rows/ }).check();
@@ -178,7 +178,7 @@ test('preferences save, discard and affect compact rendering', async ({ page }) 
   await expect(page.locator('.app-shell')).toHaveClass(/compact/);
 });
 test('command menu supports keyboard access and dialog focus containment', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   await page.getByRole('button', { name: 'Open command menu' }).click();
   await page.getByLabel('Search commands').fill('snapshots');
   await expect(
@@ -194,7 +194,7 @@ test('command menu supports keyboard access and dialog focus containment', async
   await expect(page.getByRole('heading', { name: 'Snapshots', exact: true })).toBeVisible();
 });
 test('overview and conflict dialog meet automated WCAG checks', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   let report = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21aa', 'wcag22aa'])
     .analyze();
@@ -209,7 +209,7 @@ test('overview and conflict dialog meet automated WCAG checks', async ({ page })
 });
 
 test('explorer views meet automated accessibility checks', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/?demo=1');
   for (const name of [
     'Activity',
     'Snapshots',

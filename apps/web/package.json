@@ -7,7 +7,8 @@
     "dev": "next dev --hostname 127.0.0.1 --port 3000",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1 --port 3000",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev:connected": "node scripts/https-dev.ts"
   },
   "dependencies": {
     "next": "16.4.4",
@@ -16,6 +17,7 @@
     "tailwindcss": "^4.1.16",
     "@tailwindcss/postcss": "^4.1.16",
     "@attuner/ui": "workspace:*",
-    "@attuner/shared": "workspace:*"
+    "@attuner/shared": "workspace:*",
+    "@attuner/sync-protocol": "workspace:*"
   }
 }

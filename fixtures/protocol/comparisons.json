@@ -1,0 +1,431 @@
+[
+  {
+    "name": "UTF-8 ordering",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": ".lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:d0aa59eea0fc387f3e44607f"
+        },
+        {
+          "root": "account",
+          "path": "𐀀.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:4cd3a9759b517686602f5b76"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": ".lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:d0aa59eea0fc387f3e44607f"
+        },
+        {
+          "root": "account",
+          "path": "𐀀.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:4cd3a9759b517686602f5b76"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": ".lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:d0aa59eea0fc387f3e44607f"
+        },
+        {
+          "root": "account",
+          "path": "𐀀.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:4cd3a9759b517686602f5b76"
+        }
+      ]
+    },
+    "conflictPaths": [],
+    "merged": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": ".lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:d0aa59eea0fc387f3e44607f"
+        },
+        {
+          "root": "account",
+          "path": "𐀀.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:4cd3a9759b517686602f5b76"
+        }
+      ]
+    }
+  },
+  {
+    "name": "independent changes",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        },
+        {
+          "root": "account",
+          "path": "SavedVariables/B.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:45d89ff1d6ecbdcc7c1596d4"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        },
+        {
+          "root": "account",
+          "path": "SavedVariables/B.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:45d89ff1d6ecbdcc7c1596d4"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        },
+        {
+          "root": "account",
+          "path": "SavedVariables/B.lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:45d89ff1d6ecbdcc7c1596d4"
+        }
+      ]
+    },
+    "conflictPaths": [],
+    "merged": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        },
+        {
+          "root": "account",
+          "path": "SavedVariables/B.lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:45d89ff1d6ecbdcc7c1596d4"
+        }
+      ]
+    }
+  },
+  {
+    "name": "competing modification",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "conflictPaths": ["account/SavedVariables/A.lua"],
+    "merged": null
+  },
+  {
+    "name": "local modification remote deletion",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": []
+    },
+    "conflictPaths": ["account/SavedVariables/A.lua"],
+    "merged": null
+  },
+  {
+    "name": "local deletion remote modification",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": []
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "conflictPaths": ["account/SavedVariables/A.lua"],
+    "merged": null
+  },
+  {
+    "name": "identical changes",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    },
+    "conflictPaths": [],
+    "merged": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "account",
+          "path": "SavedVariables/A.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "account:84b489ac2d4a713783109ddf"
+        }
+      ]
+    }
+  },
+  {
+    "name": "addon consistency group",
+    "baseline": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "addons",
+          "path": "Demo/a.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        },
+        {
+          "root": "addons",
+          "path": "Demo/b.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        }
+      ]
+    },
+    "local": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "addons",
+          "path": "Demo/a.lua",
+          "hash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        },
+        {
+          "root": "addons",
+          "path": "Demo/b.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        }
+      ]
+    },
+    "remote": {
+      "protocolVersion": 1,
+      "profileId": "22222222-2222-4222-8222-222222222222",
+      "policyVersion": 1,
+      "files": [
+        {
+          "root": "addons",
+          "path": "Demo/a.lua",
+          "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        },
+        {
+          "root": "addons",
+          "path": "Demo/b.lua",
+          "hash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "size": 1,
+          "group": "addons:ed6591b86be236f9ed4b5b2e"
+        }
+      ]
+    },
+    "conflictPaths": ["addons/Demo/a.lua", "addons/Demo/b.lua"],
+    "merged": null
+  }
+]

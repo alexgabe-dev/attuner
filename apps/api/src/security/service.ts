@@ -293,6 +293,11 @@ export class Security {
     );
     if (!rows[0])
       throw new ApiError(401, 'DEVICE_REVOKED', 'This device credential is expired or revoked.');
+    await this.db.run('INSERT OR IGNORE INTO device_heartbeats VALUES(?,?,?)', [
+      rows[0].id,
+      this.now(),
+      'foreground',
+    ]);
     request.attunerActor = { kind: 'device', id: rows[0].id };
     return {
       id: rows[0].id,

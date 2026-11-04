@@ -15,7 +15,7 @@ mod backup;
 pub mod compare;
 mod store;
 pub use backup::Verification;
-pub use store::{Operation, Snapshot};
+pub use store::{Operation, Snapshot, SnapshotSummary};
 mod engine;
 pub use engine::Engine;
 #[cfg(unix)]
