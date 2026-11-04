@@ -1,13 +1,37 @@
-import Fastify from 'fastify';
+import Fastify, { LogController } from 'fastify';
 import { PROTOCOL_VERSION, LIMITS, NAMESPACE_VERSION } from '@attuner/sync-protocol';
 import { DatabaseWorker, type AttunerDatabase } from '@attuner/database';
 import type { ServerTLS } from './tls';
+import type { Writable } from 'node:stream';
 export function buildApp(
   database: AttunerDatabase | DatabaseWorker,
-  options: { tls?: ServerTLS; secure?: boolean; serverId?: string; connectedSync?: boolean } = {},
+  options: {
+    tls?: ServerTLS;
+    secure?: boolean;
+    serverId?: string;
+    connectedSync?: boolean;
+    structuredLogging?: boolean;
+    logStream?: Writable;
+    trustLoopbackProxy?: boolean;
+    storageReady?: () => Promise<boolean>;
+  } = {},
 ) {
   const app = Fastify({
-    logger: false,
+    logger: options.structuredLogging
+      ? {
+          level: 'info',
+          base: null,
+          serializers: {
+            req: () => ({}),
+            res: () => ({}),
+            err: () => ({ type: 'Error', message: 'omitted', stack: '' }),
+          },
+          redact: { paths: ['req', 'res', 'err'], remove: true },
+          ...(options.logStream ? { stream: options.logStream } : {}),
+        }
+      : false,
+    logController: new LogController({ disableRequestLogging: true }),
+    trustProxy: options.trustLoopbackProxy ? ['127.0.0.1', '::1'] : false,
     allowErrorHandlerOverride: false,
     bodyLimit: 65536,
     requestTimeout: 120000,
@@ -18,11 +42,30 @@ export function buildApp(
     reply.header('Cache-Control', 'no-store');
     return payload;
   });
+  if (options.structuredLogging)
+    app.addHook('onResponse', async (request, reply) => {
+      app.log.info({
+        event: 'http.request',
+        requestId: request.id,
+        method: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'].includes(
+          request.method,
+        )
+          ? request.method
+          : 'OTHER',
+        route: request.routeOptions.url ?? 'unmatched',
+        statusCode: reply.statusCode,
+        durationMs: Math.round(reply.elapsedTime),
+      });
+    });
   app.get('/api/v1/health/live', async () => ({ status: 'ok', service: 'attuner-api' }));
   app.get('/api/v1/health/ready', async (_request, reply) => {
     try {
       if (database instanceof DatabaseWorker) await database.query('SELECT 1');
       else database.sqlite.prepare('SELECT 1').get();
+      if (options.storageReady && !(await options.storageReady())) {
+        reply.code(503);
+        return { status: 'not_ready', database: 'ready', storage: 'unavailable' };
+      }
       return { status: 'ready', database: 'ready', sqliteVersion: database.version };
     } catch {
       reply.code(503);

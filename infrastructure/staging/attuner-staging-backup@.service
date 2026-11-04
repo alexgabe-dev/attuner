@@ -1,0 +1,28 @@
+[Unit]
+Description=Explicit Attuner staging backup %i (stops API)
+Conflicts=attuner-staging-api.service
+After=attuner-staging-api.service
+
+[Service]
+Type=oneshot
+User=attuner-api
+Group=attuner-api
+WorkingDirectory=/opt/attuner/current
+EnvironmentFile=/etc/attuner-staging/service.env
+LoadCredentialEncrypted=backup.key:/srv/attuner-staging/secrets/backup.key.cred
+ExecStart=/opt/attuner/current/infrastructure/staging/run-backup.sh %i
+TimeoutStartSec=1h
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+ReadWritePaths=/srv/attuner-staging/data /srv/attuner-staging/backups
+MemoryMax=1G
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal

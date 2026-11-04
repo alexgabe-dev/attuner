@@ -1,0 +1,23 @@
+[Unit]
+Description=Attuner staging backup receipt freshness monitor
+
+[Service]
+Type=oneshot
+User=attuner-api
+Group=attuner-api
+WorkingDirectory=/opt/attuner/current
+EnvironmentFile=/etc/attuner-staging/service.env
+ExecStart=/opt/attuner/current/infrastructure/staging/run-backup-monitor.sh
+TimeoutStartSec=30
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=
+MemoryMax=256M
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal

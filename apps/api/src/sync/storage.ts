@@ -1,16 +1,19 @@
 import { constants } from 'node:fs';
-import { mkdir, open, link, unlink, lstat, statfs } from 'node:fs/promises';
+import { mkdir, open, link, unlink, lstat, statfs, access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { createBLAKE3 } from 'hash-wasm';
 import { ApiError } from '../security/primitives.ts';
-const reserve = 16n * 1024n * 1024n;
 /** Server-owned storage only; no caller paths. The production server targets a local Unix filesystem. */
 export class BlobStorage {
   private active = 0;
   readonly directory: string;
-  constructor(directory: string) {
+  private readonly reserve: bigint;
+  constructor(directory: string, reserveBytes = 16777216) {
+    if (!Number.isSafeInteger(reserveBytes) || reserveBytes < 16777216 || reserveBytes > 1024 ** 4)
+      throw new Error('Invalid storage disk reserve.');
     this.directory = directory;
+    this.reserve = BigInt(reserveBytes);
   }
   async initialize() {
     if (process.platform === 'win32')
@@ -57,8 +60,19 @@ export class BlobStorage {
   }
   async space(bytes: number) {
     const fs = await statfs(this.directory, { bigint: true });
-    if (fs.bavail * fs.bsize < BigInt(bytes) + reserve)
+    if (fs.bavail * fs.bsize < BigInt(bytes) + this.reserve)
       throw new ApiError(507, 'INSUFFICIENT_SPACE', 'Storage has insufficient free space.');
+  }
+  async ready() {
+    try {
+      const info = await lstat(this.directory);
+      if (!info.isDirectory() || info.isSymbolicLink()) return false;
+      await access(this.directory, constants.R_OK | constants.W_OK | constants.X_OK);
+      await this.space(0);
+      return true;
+    } catch {
+      return false;
+    }
   }
   private async readVerified(path: string, expectedSize: number, expectedHash: string) {
     const handle = await open(path, constants.O_RDONLY | constants.O_NOFOLLOW);

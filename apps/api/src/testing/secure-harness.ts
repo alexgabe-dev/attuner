@@ -15,6 +15,8 @@ export async function secureHarness(
   options: {
     blobDirectory?: string;
     databaseFilename?: string;
+    publicOrigin?: string;
+    trustLoopbackProxy?: boolean;
     transformResponse?: (path: string, payload: string | Buffer | null) => string | Buffer | null;
   } = {},
 ) {
@@ -137,6 +139,8 @@ export async function secureHarness(
       }
       db = await DatabaseWorker.open(filename);
       ({ app, security } = await createSecureApp(db, {
+        ...(options.publicOrigin ? { publicOrigin: options.publicOrigin } : {}),
+        ...(options.trustLoopbackProxy ? { trustLoopbackProxy: true } : {}),
         tls: tls.tls,
         deliveryKey,
         blobDirectory,

@@ -10,23 +10,36 @@ import { managementRoutes } from './sync/management.ts';
 import { publicationRoutes } from './sync/publication.ts';
 import { syncRoutes } from './sync/routes.ts';
 import { ApiError } from './security/primitives.ts';
+import { runtimeCredential } from './credentials.ts';
+import type { Writable } from 'node:stream';
 export type SecureOptions = {
   tls: ServerTLS;
   deliveryKey: Buffer;
   publicOrigin?: string;
   now?: () => number;
   blobDirectory?: string;
+  structuredLogging?: boolean;
+  logStream?: Writable;
+  trustLoopbackProxy?: boolean;
+  diskReserveBytes?: number;
 };
 export async function createSecureApp(database: DatabaseWorker, options: SecureOptions) {
   await database.run("INSERT OR IGNORE INTO server_settings VALUES('server_id',?)", [randomUUID()]);
   const settings = await database.query<{ value: string }>(
     "SELECT value FROM server_settings WHERE key='server_id'",
   );
+  let storage: BlobStorage | undefined;
   const app = buildApp(database, {
     tls: options.tls,
     secure: true,
     serverId: settings[0]!.value,
     connectedSync: !!options.blobDirectory,
+    ...(options.structuredLogging ? { structuredLogging: true } : {}),
+    ...(options.logStream ? { logStream: options.logStream } : {}),
+    ...(options.trustLoopbackProxy ? { trustLoopbackProxy: true } : {}),
+    ...(options.blobDirectory
+      ? { storageReady: async () => (storage ? storage.ready() : false) }
+      : {}),
   });
   if (options.publicOrigin) {
     const url = new URL(options.publicOrigin);
@@ -147,7 +160,7 @@ export async function createSecureApp(database: DatabaseWorker, options: SecureO
   });
   securityRoutes(app, security);
   if (options.blobDirectory) {
-    const storage = new BlobStorage(options.blobDirectory);
+    storage = new BlobStorage(options.blobDirectory, options.diskReserveBytes);
     await storage.initialize();
     syncRoutes(app, security, storage);
     publicationRoutes(app, security, storage);
@@ -166,3 +179,14 @@ export function deliveryKey(env: NodeJS.ProcessEnv = process.env) {
   return key;
 }
 export const ephemeralDevelopmentDeliveryKey = () => randomBytes(32);
+export async function loadDeliveryKey(env: NodeJS.ProcessEnv = process.env) {
+  const credential = await runtimeCredential('token-delivery-key', 32, env);
+  if (credential) {
+    if (credential.length !== 32) {
+      credential.fill(0);
+      throw new Error('A 32-byte runtime token-delivery key is required.');
+    }
+    return credential;
+  }
+  return deliveryKey(env);
+}

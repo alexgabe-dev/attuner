@@ -1,0 +1,24 @@
+[Unit]
+Description=Attuner staging HTTPS and disk-reserve readiness monitor
+After=network.target
+
+[Service]
+Type=oneshot
+User=attuner-monitor
+Group=attuner-monitor
+WorkingDirectory=/opt/attuner/current
+EnvironmentFile=/etc/attuner-staging/service.env
+ExecStart=/opt/attuner/current/infrastructure/staging/run-monitor.sh
+TimeoutStartSec=20
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+MemoryMax=128M
+LimitCORE=0
+StandardOutput=journal
+StandardError=journal

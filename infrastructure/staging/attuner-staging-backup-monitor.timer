@@ -1,0 +1,11 @@
+[Unit]
+Description=Attuner staging backup freshness checks (operator enables explicitly)
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+AccuracySec=1min
+Unit=attuner-staging-backup-monitor.service
+
+[Install]
+WantedBy=timers.target

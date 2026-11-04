@@ -49,7 +49,7 @@ const entrySchema = z.strictObject({
   sha256: hash,
   blake3: hash,
 });
-const receiptSchema = z.strictObject({
+export const backupReceiptSchema = z.strictObject({
   schemaVersion: z.literal(1),
   backupId: z.uuid(),
   catalogHash: hash,
@@ -327,7 +327,7 @@ export async function restoreBackup(
   await privateDirectory(backupDirectory);
   await privateDirectory(dirname(destination));
   const checkpoint = control(options);
-  const receipt = receiptSchema.parse(await smallJSON(join(backupDirectory, 'receipt.json')));
+  const receipt = backupReceiptSchema.parse(await smallJSON(join(backupDirectory, 'receipt.json')));
   if (
     (await digestFile(join(backupDirectory, 'catalog.sealed'), catalogLimit + 36)).sha256 !==
     receipt.catalogHash

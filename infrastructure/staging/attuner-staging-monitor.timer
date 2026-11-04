@@ -1,0 +1,11 @@
+[Unit]
+Description=Attuner staging readiness checks (operator enables explicitly)
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Unit=attuner-staging-monitor.service
+
+[Install]
+WantedBy=timers.target

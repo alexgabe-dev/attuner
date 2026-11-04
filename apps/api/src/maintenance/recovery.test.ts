@@ -1,6 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile, open } from 'node:fs/promises';
+import {
+  cp,
+  mkdir,
+  mkdtemp,
+  readFile,
+  readdir,
+  rm,
+  writeFile,
+  open,
+  utimes,
+} from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { basename } from 'node:path';
@@ -14,6 +24,7 @@ import { sha } from '../security/primitives.ts';
 import { managementScenario } from '../testing/management-scenario.ts';
 import { assertRestoreReady, createBackup, restoreBackup } from './recovery.ts';
 import { appendMaintenanceAudit, verifyDatabase } from './verify.ts';
+import { backupStatus } from './status.ts';
 
 describe.skipIf(process.platform === 'win32')('encrypted server disaster recovery', () => {
   let root: string, source: string, profile: string, originalPassword: string;
@@ -395,4 +406,29 @@ describe.skipIf(process.platform === 'win32')('encrypted server disaster recover
       else await expect(assertRestoreReady(destination)).rejects.toThrow();
     }
   }, 45000);
+  it('reports fresh, stale, incomplete and corrupt backup catalogs without a decryption key', async () => {
+    const parent = path('backup-monitor');
+    await mkdir(parent, { mode: 0o700 });
+    expect((await backupStatus(parent)).reason).toBe('none');
+    const backup = join(parent, 'capture');
+    await createBackup(source, backup, { key });
+    const now = Date.now();
+    expect(await backupStatus(parent, 86400, now)).toMatchObject({
+      freshReceipt: true,
+      completed: 1,
+      incomplete: 0,
+      reason: 'ready',
+    });
+    const old = new Date(now - 2 * 86400000);
+    await utimes(join(backup, 'receipt.json'), old, old);
+    expect((await backupStatus(parent, 86400, now)).reason).toBe('stale');
+    await mkdir(join(parent, 'interrupted'), { mode: 0o700 });
+    expect(await backupStatus(parent, 86400, now)).toMatchObject({
+      freshReceipt: false,
+      incomplete: 1,
+      reason: 'incomplete_capture',
+    });
+    await writeFile(join(backup, 'catalog.sealed'), Buffer.alloc(64));
+    expect((await backupStatus(parent, 86400, now)).reason).toBe('catalog_corrupt');
+  });
 });

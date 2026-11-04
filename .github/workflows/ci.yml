@@ -20,11 +20,18 @@ jobs:
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - run: pnpm test:connected
+      - run: pnpm test:staging -- --docker
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: attuner-connected-ui
           path: artifacts/phase-3/
+          retention-days: 14
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: attuner-phase-4-qualification
+          path: artifacts/phase-4/
           retention-days: 14
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -35,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-15, windows-2022]
+        os: [macos-15, macos-15-intel, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
