@@ -1,9 +1,9 @@
 {
   "scope": "isolated synthetic installations only",
   "platform": "macOS arm64",
-  "source": "local worktree before M8 commit",
+  "source": "local worktree including HTTPS-entry security follow-up",
   "typescript": {
-    "passed": 76,
+    "passed": 78,
     "command": "pnpm test"
   },
   "rust": {
@@ -13,15 +13,16 @@
     "command": "cargo test --workspace --locked"
   },
   "browser": {
-    "passed": 51,
-    "expectedPlatformSkips": 9
+    "passed": 54,
+    "expectedPlatformSkips": 10
   },
   "checks": [
     "pnpm verify",
     "cargo fmt --all -- --check",
     "cargo clippy --workspace --all-targets --locked -- -D warnings",
     "cargo test --workspace --locked",
-    "pnpm --filter @attuner/desktop tauri build --debug"
+    "pnpm --filter @attuner/desktop tauri build --debug",
+    "HTTP credential fields absent; HTTPS and same-origin request guard"
   ],
   "nativeRendered": [
     "HTTPS enrollment and OS callback",
@@ -35,5 +36,5 @@
     "offline verification in final packaged app"
   ],
   "windows11": "pending physical-PC qualification; local filesystem apply disabled",
-  "timestamp": "2026-11-04T10:07:13.751677+00:00"
+  "timestamp": "2026-11-04T10:22:39.778200+00:00"
 }

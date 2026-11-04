@@ -1,0 +1,34 @@
+{
+  "runId": 41812187271,
+  "url": "https://github.com/alexgabe-dev/attuner/actions/runs/41812187271",
+  "sourceCommit": "529766380ef0",
+  "jobs": [
+    {
+      "platform": "Linux",
+      "jobId": 126513904943,
+      "result": "success",
+      "typescriptTests": 76,
+      "browserTests": 51,
+      "connectedHttpsQualification": "passed"
+    },
+    {
+      "platform": "macOS 15",
+      "jobId": 126513905096,
+      "result": "success",
+      "rustTests": 67,
+      "nativeBuild": "passed"
+    },
+    {
+      "platform": "Windows Server 2022",
+      "jobId": 126513906908,
+      "result": "success",
+      "rustTests": 19,
+      "nativeBuild": "passed",
+      "standaloneQualificationBundle": "passed",
+      "filesystemApplyEnabled": false,
+      "windows11Qualified": false
+    }
+  ],
+  "scope": "synthetic prerequisites and platform-specific tests; Unix recovery tests are not claimed as Windows evidence",
+  "followup": "HTTPS entry guard expands local TypeScript/browser coverage; subsequent pushes use the same pipeline"
+}

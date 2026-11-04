@@ -55,7 +55,7 @@ curl --cacert .runtime/development-ca.pem https://127.0.0.1:4317/api/v1/health/r
 pnpm dev:web
 ```
 
-`pnpm dev:web` serves the labeled design demo at `http://127.0.0.1:3000/?demo=1`. Its default connected page cannot authenticate over HTTP; use the HTTPS command above for accounts. The desktop browser preview is `pnpm dev:desktop:browser`, followed by `http://127.0.0.1:1420/?demo=1`; native operations are visibly disabled. These demos do not contact the synchronization server or mint credentials.
+`pnpm dev:web` serves the labeled design demo at `http://127.0.0.1:3000/?demo=1`. Its HTTP entry page hides credential fields and the request layer refuses authentication or data requests without HTTPS; use the HTTPS command above for accounts. The desktop browser preview is `pnpm dev:desktop:browser`, followed by `http://127.0.0.1:1420/?demo=1`; native operations are visibly disabled. These demos do not contact the synchronization server or mint credentials.
 
 The normal API entry point requires `ATTUNER_TLS_KEY`, `ATTUNER_TLS_CERT`, `ATTUNER_TLS_PASSPHRASE`, `ATTUNER_TOKEN_DELIVERY_KEY` (32 random bytes encoded as base64), and an externally correct `ATTUNER_PUBLIC_ORIGIN`. Supply secrets through a process secret provider, never checked-in files or command arguments. TLS private keys must be encrypted PKCS#8. SQLite mutations use the bounded FULL-WAL worker; all physical blob verification precedes the short CAS transaction.
 

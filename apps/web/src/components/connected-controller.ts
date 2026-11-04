@@ -8,6 +8,15 @@ export function webController(): ConnectedController {
     body?: unknown,
     key?: string,
   ): Promise<T> {
+    if (globalThis.location?.protocol !== 'https:')
+      throw new Error('Open Attuner over HTTPS before signing in.');
+    if (
+      !path.startsWith('/api/v1/') ||
+      path.includes('\\') ||
+      path.includes('#') ||
+      new URL(path, globalThis.location.origin).origin !== globalThis.location.origin
+    )
+      throw new Error('Only this Attuner server’s API can receive authenticated requests.');
     const headers: Record<string, string> = {};
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (method !== 'GET' && csrf) headers['X-CSRF-Token'] = csrf;

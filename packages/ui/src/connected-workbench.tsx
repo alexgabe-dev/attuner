@@ -192,7 +192,7 @@ function ConflictChoices({
           </legend>
           <p>
             {entry.group
-              ? `Keep the ${entry.group} addon group together.`
+              ? `Keep the ${entry.path.split('/')[0]} addon together.`
               : 'Both versions changed since the baseline.'}
           </p>
           <div className="connected-variants">
@@ -463,6 +463,7 @@ export function ConnectedWorkbench({
   }
   const working = busy || native?.busy;
   const profile = profiles.find((p) => p.id === profileId);
+  const readOnly = profile?.permission === 'read' || profile?.role === 'reader';
   const activeJob = local?.jobs.find(
     (j) => !terminal(j.state) && !('revokedAt' in j && j.revokedAt),
   );
@@ -632,7 +633,9 @@ export function ConnectedWorkbench({
                 </option>
               ))}
             </select>
-            <span className="connected-synthetic">Synthetic installations</span>
+            <span className="connected-synthetic">
+              {readOnly ? 'Read-only · Synthetic installations' : 'Synthetic installations'}
+            </span>
           </div>
           <nav aria-label="Main navigation">
             {pages
@@ -827,7 +830,7 @@ export function ConnectedWorkbench({
                         </select>
                       </label>
                       <Button
-                        disabled={working || !native?.localSupported}
+                        disabled={working || !native?.localSupported || readOnly}
                         onClick={() =>
                           void run(() =>
                             localAction({ action: 'create', profile: profileId, adapter: 1 }),
@@ -839,7 +842,7 @@ export function ConnectedWorkbench({
                       </Button>
                       <Button
                         variant="primary"
-                        disabled={working || !fixture || !!activeJob}
+                        disabled={working || !fixture || !!activeJob || readOnly}
                         onClick={() => void run(() => localAction({ action: 'prepare' }))}
                       >
                         <RefreshCw size={15} />
@@ -850,6 +853,12 @@ export function ConnectedWorkbench({
                       <p className="connected-note">
                         Local file application is disabled until Windows durability qualification is
                         complete. Device and revision management are available.
+                      </p>
+                    )}
+                    {readOnly && (
+                      <p className="connected-note">
+                        This device can inspect snapshots. Publishing permission is required to
+                        start a local synchronization comparison.
                       </p>
                     )}
                     {native?.busy && (
@@ -869,6 +878,7 @@ export function ConnectedWorkbench({
                     )}
                     {activeJob && (
                       <LocalReview
+                        readOnly={readOnly}
                         job={activeJob}
                         busy={!!working}
                         action={(action) =>
@@ -1416,7 +1426,7 @@ export function ConnectedWorkbench({
                                   <bdi>{f.path}</bdi>
                                 </strong>
                                 <small>
-                                  {f.group} · {short(f.hash)}
+                                  {f.path.split('/')[0]} · {short(f.hash)}
                                 </small>
                               </div>
                               <span className="muted">{bytes(f.size)}</span>
@@ -1726,6 +1736,7 @@ export function ConnectedWorkbench({
                 variant="primary"
                 disabled={
                   working ||
+                  readOnly ||
                   !!review?.nextOffset ||
                   (reviewJob ? reviewJob.conflictTotal > reviewJob.conflicts.length : false) ||
                   !(reviewJob?.conflicts ?? review?.conflicts ?? []).length ||
@@ -2040,11 +2051,13 @@ function Connection({
   );
 }
 function LocalReview({
+  readOnly = false,
   job,
   busy,
   action,
   review,
 }: {
+  readOnly?: boolean;
   job: LocalJob;
   busy: boolean;
   action: (action: Record<string, unknown>) => void;
@@ -2089,7 +2102,11 @@ function LocalReview({
         </Button>
       )}
       {job.state === 'awaitingApproval' && (
-        <Button variant="primary" disabled={busy} onClick={() => setApproval('publish')}>
+        <Button
+          variant="primary"
+          disabled={busy || readOnly}
+          onClick={() => setApproval('publish')}
+        >
           Review & publish
         </Button>
       )}

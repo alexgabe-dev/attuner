@@ -3931,3 +3931,26 @@ button {
 .connected-offline > select {
   margin: 0 8px 10px 0;
 }
+
+.secure-entry {
+  max-width: 450px;
+  margin: 15vh auto 60px;
+  padding: 0 24px;
+}
+.secure-entry > .brand {
+  margin-bottom: 40px;
+}
+.secure-entry h1 {
+  margin: 12px 0;
+}
+.secure-entry > p:not(.eyebrow) {
+  font-size: 13px;
+  line-height: 1.8;
+  color: var(--secondary);
+  margin-bottom: 25px;
+}
+.connected-row strong,
+.connected-panel > .section-heading h2 {
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
