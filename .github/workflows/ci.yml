@@ -72,9 +72,14 @@ jobs:
           $attunerResult = @($attunerOutput | Where-Object { $_ -match '^Results: ' })
           if ($attunerResult.Count -ne 1) { throw 'Expected one native results directory.' }
           $attunerResultPath = $attunerResult[0].Substring(9)
-          if ([IO.Path]::GetDirectoryName($attunerResultPath).TrimEnd('\') -ine [IO.Path]::GetTempPath().TrimEnd('\') -or -not [IO.Path]::GetFileName($attunerResultPath).StartsWith('attuner-windows-results-')) { throw 'Unexpected native results location.' }
-          if ((Get-Item -LiteralPath $attunerResultPath).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe results directory.' }
-          Copy-Item -LiteralPath $attunerResultPath -Destination (Join-Path $attunerBundle.FullName 'results') -Recurse
+          $attunerResultName = [IO.Path]::GetFileName($attunerResultPath)
+          if ($attunerResultName -notmatch '^attuner-windows-results-[a-zA-Z0-9]+$') { throw 'Unexpected native results name.' }
+          # Rust may print the 8.3 spelling of TEMP; enumerate the trusted TEMP
+          # parent instead of weakening containment or comparing path spellings.
+          $attunerResultDirectory = @(Get-ChildItem -LiteralPath ([IO.Path]::GetTempPath()) -Directory -Filter $attunerResultName)
+          if ($attunerResultDirectory.Count -ne 1 -or $attunerResultDirectory[0].Name -cne $attunerResultName) { throw 'Results are not in the expected temporary parent.' }
+          if ($attunerResultDirectory[0].Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe results directory.' }
+          Copy-Item -LiteralPath $attunerResultDirectory[0].FullName -Destination (Join-Path $attunerBundle.FullName 'results') -Recurse
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:

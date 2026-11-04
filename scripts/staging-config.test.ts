@@ -28,3 +28,8 @@ it('rejects proxy origin/listener/path injection before writing deployment files
   expect(() => renderProxy({ ...config, apiName: 'localhost; injected' })).toThrow();
   expect(() => renderProxy({ ...config, apiPort: 80 })).toThrow();
 });
+it('keeps every compiled-in nginx temporary directory inside its writable cache', () => {
+  const rendered = renderProxy(config);
+  for (const name of ['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'])
+    expect(rendered).toContain(`${name}_temp_path "${config.cache}/`);
+});

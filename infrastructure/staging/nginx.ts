@@ -55,6 +55,9 @@ http {
   limit_conn_zone $binary_remote_addr zone=attuner_connections:1m;
   client_body_temp_path ${path(config.cache + '/body')};
   proxy_temp_path ${path(config.cache + '/proxy')};
+  fastcgi_temp_path ${path(config.cache + '/fastcgi')};
+  uwsgi_temp_path ${path(config.cache + '/uwsgi')};
+  scgi_temp_path ${path(config.cache + '/scgi')};
   client_max_body_size 17m;
   client_body_buffer_size 64k;
   client_header_buffer_size 1k;
