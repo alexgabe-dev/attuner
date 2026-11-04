@@ -165,14 +165,22 @@ Bootstrap only once with hidden password input; no default/public account exists
 Only after the dedicated DNS/certificate/listener review and existing-site baseline checks:
 
 ```sh
-test ! -e /etc/nginx/conf.d/attuner-staging.conf
-test ! -L /etc/nginx/conf.d/attuner-staging.conf
-sudo install -o root -g root -m 0644 attuner-staging.conf /etc/nginx/conf.d/attuner-staging.conf
+sudo python3 -c '
+import os, sys
+content = sys.stdin.buffer.read(65537)
+if not content or len(content) > 65536:
+    raise SystemExit("Unexpected include size")
+fd = os.open("/etc/nginx/conf.d/attuner-staging.conf", os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+with os.fdopen(fd, "wb") as output:
+    output.write(content)
+    output.flush()
+    os.fsync(output.fileno())
+' < attuner-staging.conf
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-The stated include path must already be included in the existing host's `http {}`. If it is not, stop and review a host-specific change; do not edit `nginx.conf` or enable a second include automatically. Never run `restart nginx` or install/replace Nginx for this procedure. If `nginx -t` fails, remove only the new verified Attuner file before proceeding; the running Nginx keeps its prior configuration. A successful syntax test does not prove every existing site works: recheck their baseline health immediately after a graceful reload. Verify the chosen Attuner origin, secure-cookie login, three synthetic devices/revisions, bad-origin/size/rate rejection, certificate trust, explicit conflicts and outages. No real game files or automatic apply.
+The create-new operation refuses any existing file, directory or symlink, including concurrent creation; it never overwrites a Nginx configuration. The stated include path must already be included in the existing host's `http {}`. If it is not, stop and review a host-specific change; do not edit `nginx.conf` or enable a second include automatically. Never run `restart nginx` or install/replace Nginx for this procedure. If `nginx -t` fails, remove only the new verified Attuner file before proceeding; the running Nginx keeps its prior configuration. A successful syntax test does not prove every existing site works: recheck their baseline health immediately after a graceful reload. Verify the chosen Attuner origin, secure-cookie login, three synthetic devices/revisions, bad-origin/size/rate rejection, certificate trust, explicit conflicts and outages. No real game files or automatic apply.
 
 After manual review, optional readiness and backup-freshness timers can be started/enabled **only for Attuner**. No backup timer exists. `attuner-staging-backup@<unique-name>.service` stops/conflicts with the API, uses an explicitly unlocked backup role and does not restart it. Run the freshness monitor after a successful encrypted backup, inspect its status and then resume the API explicitly. Receipt freshness checks catalogs/age, not decryptability. Run clean-root restore/three-client drills using [the recovery guide](server-backup-restore.md). Incomplete captures alert and remain retained; never delete them to manufacture a pass. Alerts stay local until an external destination is separately approved.
 

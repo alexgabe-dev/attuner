@@ -91,6 +91,7 @@ jobs:
             .runtime/jammy-unit-verification.log
             .runtime/jammy-tools/*-version.txt
             artifacts/phase-4/staging-qualification-jammy-shared-linux.json
+            artifacts/phase-4/staging-jammy-shared-linux-1440.png
             artifacts/phase-4/systemd-credential-qualification-linux.json
           retention-days: 14
   native:

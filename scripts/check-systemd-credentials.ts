@@ -22,13 +22,15 @@ if (process.argv[2] === 'probe') {
   assert(bytes.equals(Buffer.from(marker)));
   bytes.fill(0);
   const file = await lstat(join(process.env.CREDENTIALS_DIRECTORY!, 'token-delivery-key'));
-  // Exercise systemd's preferred root-owned ACL case, rather than accidentally
-  // passing only the service-owned fallback already covered by portable tests.
-  assert.equal(file.uid, 0);
+  const privateOwner = process.argv[3] === 'service-owner';
+  // Jammy's native 249 delivers service-owned private files on this runner;
+  // 255 qualification must still exercise its separate root-owned ACL branch.
+  assert.equal(file.uid, privateOwner ? process.getuid!() : 0);
   console.log(
     JSON.stringify({
       passed: true,
-      rootOwnedAclPathExercised: true,
+      rootOwnedAclPathExercised: !privateOwner,
+      privateOwnerPathExercised: privateOwner,
       fileMode: (file.mode & 0o777).toString(8),
     }),
   );
@@ -45,6 +47,12 @@ if (process.argv[2] === 'probe') {
   assert.equal((await readFile('/proc/1/comm', 'utf8')).trim(), 'systemd');
   const unit = `attuner-credential-qualification-${randomUUID()}.service`;
   const loadMarker = process.argv.includes('--load-marker');
+  const { stdout: version } = await execute('systemd', ['--version'], {
+    encoding: 'utf8',
+    maxBuffer: 4096,
+    timeout: 2000,
+  });
+  const privateOwner = loadMarker && /^systemd 249\b/.test(version);
   const publicSource = loadMarker
     ? await mkdtemp(join(tmpdir(), 'attuner-public-credential-probe-'))
     : undefined;
@@ -80,21 +88,19 @@ if (process.argv[2] === 'probe') {
         'tsx',
         'scripts/check-systemd-credentials.ts',
         'probe',
+        privateOwner ? 'service-owner' : 'root-acl',
       ],
       { encoding: 'utf8', maxBuffer: 16384, timeout: 40000 },
     ));
     const probe = JSON.parse(stdout.trim()) as {
       passed: boolean;
       rootOwnedAclPathExercised: boolean;
+      privateOwnerPathExercised: boolean;
       fileMode: string;
     };
     assert.equal(probe.passed, true);
-    assert.equal(probe.rootOwnedAclPathExercised, true);
-    const { stdout: version } = await execute('systemd', ['--version'], {
-      encoding: 'utf8',
-      maxBuffer: 4096,
-      timeout: 2000,
-    });
+    assert.equal(probe.rootOwnedAclPathExercised, !privateOwner);
+    assert.equal(probe.privateOwnerPathExercised, privateOwner);
     await writeFile(
       'artifacts/phase-4/systemd-credential-qualification-linux.json',
       JSON.stringify(
