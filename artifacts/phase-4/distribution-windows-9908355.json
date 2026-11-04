@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "applicationIdentity": "app.attuner.desktop",
+  "version": "0.1.0",
+  "sourceCommit": "990835502bec0e5ac87af5905fbb85401e2fc281",
+  "dirtySource": false,
+  "platform": "windows",
+  "architecture": "x86_64",
+  "mode": "development",
+  "files": [
+    {
+      "name": "Attuner-setup.exe",
+      "sha256": "77bb6167ac858128c665e067681e6a058449cba427ff0648dbaa59a2a381e284"
+    },
+    {
+      "name": "Attuner.exe",
+      "sha256": "86984790a86a5ae13db5e2ab6286ae92faa72b4414cc9020299f8f3b75df94db"
+    }
+  ],
+  "protocolVersion": 1,
+  "namespaceVersion": 1,
+  "automaticUpdatesEnabled": false,
+  "publicDistributionReady": false,
+  "remainingGates": [
+    "signing-notarization",
+    "windows-11-recovery",
+    "signed-upgrade-credentials",
+    "beta-release-review"
+  ]
+}

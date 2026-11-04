@@ -43,7 +43,8 @@ See [complete launch/certificate/secure-store instructions](docs/operations/phas
 
 ## Verification and limits
 
-- [Phase 4 verification ledger and release blockers](docs/operations/phase-4-progress.md)
+- [Phase 4 verification, screenshots, launch commands and release blockers](docs/operations/phase-4-verification.md)
+- [Phase 4 milestone ledger](docs/operations/phase-4-progress.md)
 - [Beta setup, privacy, diagnostics and release checklist](docs/operations/beta-readiness.md)
 - [Phase 4 pack/shaped-HTTPS performance measurements](docs/operations/phase-4-performance.md)
 - [Local account administration](docs/operations/local-accounts.md), [encrypted backup/restore](docs/operations/server-backup-restore.md), [undeployed staging](docs/operations/staging.md), [distribution pipelines](docs/operations/desktop-distribution.md)

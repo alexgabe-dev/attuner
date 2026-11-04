@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "environment": "Linux container on hosted CI; loopback only",
+  "nginx": "nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949",
+  "checks": [
+    "configuration syntax",
+    "two verified TLS hops",
+    "secure-cookie login",
+    "scoped three-device enrollment",
+    "two immutable revisions",
+    "DPoP through proxy",
+    "unknown-upstream-CA rejection",
+    "real Next.js dashboard",
+    "credential-free proxy logs",
+    "CSRF origin rejection",
+    "oversized request rejection",
+    "login rate limit",
+    "healthy/outage monitor"
+  ],
+  "deployed": false,
+  "systemdServicesActivated": false,
+  "systemdEncryptedCredentialProvisioningQualified": false,
+  "realInstallationsAccessed": false,
+  "signedDistribution": false
+}

@@ -7,11 +7,22 @@ Windows filesystem apply is deliberately disabled. Passing these probes is **pre
 ## Download and run
 
 1. In the Attuner GitHub repository, open **Actions → Attuner verification**, choose a successful run on `phase4-beta-readiness`, and download **attuner-windows-qualification**. Check its source commit against `manifest.json` after extracting the ZIP into a new local folder, for example `Documents\AttunerQualification`. These unsigned checksums detect incomplete/changed files; they do not authenticate a ZIP obtained outside the trusted repository/run.
-2. Open a normal PowerShell window in the extracted folder. The native driver verifies every bundled file against the manifest before starting any tests. Run:
+2. Open the folder containing `manifest.json` and `Qualify-Windows.exe` (the ZIP may include a `windows-qualification-<source>` subfolder), then open a normal PowerShell window there. The native driver verifies every bundled file against the manifest before starting any tests. Run:
 
 ```powershell
 .\Qualify-Windows.exe
 ```
+
+Verified product-milestone bundle: [a5dc4f2 artifact](https://github.com/alexgabe-dev/attuner/actions/runs/41899944829/artifacts/13359090749), source `a5dc4f2703b2108eaddfcc48cecfd05daf5511fc`. If downloaded as `attuner-windows-qualification.zip`, this exact example starts from the download directory and refuses overwriting an existing extraction:
+
+```powershell
+Expand-Archive -LiteralPath .\attuner-windows-qualification.zip -DestinationPath .\AttunerQualification-a5dc4f2
+Set-Location .\AttunerQualification-a5dc4f2\windows-qualification-a5dc4f2703b2
+.\Qualify-Windows.exe
+Start-Process .\Attuner.exe
+```
+
+GitHub artifacts expire after 14 days; choose a newer fully passing run when needed and use its matching folder/source. The retained Server 2022 report is explicitly **elevated**, `allowServer: true`, `windows11: false`. It proves those synthetic tests/containment ran there, not normal-user Windows 11 behavior. Do not use `--allow-server` on the physical PC to bypass the normal-user/version check.
 
 The native driver changes no system or process execution policy. It verifies every bundled file, retains no-write/no-delete handles while tests run and creates a new `attuner-windows-results-*` directory under your own temporary directory. The exact results path is printed; it contains `report.json` and five individual logs. Tests and their descendants are contained in an owned Windows Job Object, including abnormal termination. No existing files are deleted. Credential tests create/rotate/remove only random `app.attuner.desktop.tests` entries. The PowerShell wrapper is optional and should be used only if your existing policy permits it; do not lower execution policy to run qualification.
 

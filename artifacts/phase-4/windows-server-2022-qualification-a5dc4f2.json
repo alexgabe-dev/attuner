@@ -1,0 +1,59 @@
+{
+  "allowServer": true,
+  "applicationRecoveryQualified": false,
+  "architecture": "x86_64",
+  "bundleTarget": "x86_64-pc-windows-msvc",
+  "defenderConfigurationChanged": false,
+  "desktopVisualReview": "pending_manual_review",
+  "elevated": true,
+  "executionPolicyChanged": false,
+  "filesystemApplyEnabled": false,
+  "nativeArchitecture": 9,
+  "nativeTargetMatched": true,
+  "os": {
+    "build": 20348,
+    "major": 10,
+    "minor": 0,
+    "productType": 3
+  },
+  "powerLossQualified": false,
+  "processContainmentVerified": true,
+  "qualification": "synthetic_native_recovery_passed",
+  "realInstallationsAccessed": false,
+  "schemaVersion": 4,
+  "signedDistributionQualified": false,
+  "sourceCommit": "a5dc4f2703b2108eaddfcc48cecfd05daf5511fc",
+  "tests": [
+    {
+      "executable": "handle-safety.exe",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false
+    },
+    {
+      "executable": "native-recovery.exe",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false
+    },
+    {
+      "executable": "ntfs-probes.exe",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false
+    },
+    {
+      "executable": "protocol-tests.exe",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false
+    },
+    {
+      "executable": "credential-tests.exe",
+      "exitCode": 0,
+      "passed": true,
+      "timedOut": false
+    }
+  ],
+  "windows11": false
+}

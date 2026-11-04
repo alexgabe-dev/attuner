@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "scope": "Read-only verification of GitHub CI ZIPs; no Windows executable, installer or downloaded app was executed. Signatures and physical Windows 11 remain unqualified.",
+  "artifacts": [
+    {
+      "artifactId": 13359090749,
+      "workflowRun": 41899944829,
+      "sourceCommit": "a5dc4f2703b2108eaddfcc48cecfd05daf5511fc",
+      "outerArchiveSha256Verified": true,
+      "inventoryFileSha256Verified": 9,
+      "artifactUrl": "https://github.com/alexgabe-dev/attuner/actions/runs/41899944829/artifacts/13359090749"
+    },
+    {
+      "artifactId": 13358207703,
+      "workflowRun": 41900810267,
+      "sourceCommit": "990835502bec0e5ac87af5905fbb85401e2fc281",
+      "outerArchiveSha256Verified": true,
+      "inventoryFileSha256Verified": 2,
+      "artifactUrl": "https://github.com/alexgabe-dev/attuner/actions/runs/41900810267/artifacts/13358207703"
+    },
+    {
+      "artifactId": 13358096290,
+      "workflowRun": 41900810267,
+      "sourceCommit": "990835502bec0e5ac87af5905fbb85401e2fc281",
+      "outerArchiveSha256Verified": true,
+      "inventoryFileSha256Verified": 2,
+      "artifactUrl": "https://github.com/alexgabe-dev/attuner/actions/runs/41900810267/artifacts/13358096290"
+    }
+  ]
+}

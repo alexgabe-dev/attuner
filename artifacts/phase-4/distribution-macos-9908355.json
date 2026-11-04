@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "applicationIdentity": "app.attuner.desktop",
+  "version": "0.1.0",
+  "sourceCommit": "990835502bec0e5ac87af5905fbb85401e2fc281",
+  "dirtySource": false,
+  "platform": "macos",
+  "architecture": "aarch64",
+  "mode": "development",
+  "files": [
+    {
+      "name": "Attuner.app.zip",
+      "sha256": "8c14bda26c0513953d07e900b78855bf94a3fd8c498dd33af4ff0ba70f3913b7"
+    },
+    {
+      "name": "Attuner.dmg",
+      "sha256": "650020dcf8629652665c6d789bc042dd79f83e63aa0b2ef513ae45a4a39518dd"
+    }
+  ],
+  "protocolVersion": 1,
+  "namespaceVersion": 1,
+  "automaticUpdatesEnabled": false,
+  "publicDistributionReady": false,
+  "remainingGates": [
+    "signing-notarization",
+    "windows-11-recovery",
+    "signed-upgrade-credentials",
+    "beta-release-review"
+  ]
+}
