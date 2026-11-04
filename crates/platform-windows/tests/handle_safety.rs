@@ -83,19 +83,34 @@ fn pinned_parent_prevents_rename_and_keeps_descendant_alive() {
 }
 
 #[test]
-fn pinned_preimage_denies_concurrent_write_delete_and_link() {
+fn pinned_preimage_denies_write_delete_and_detects_new_hardlinks() {
     let workspace = SyntheticWorkspace::create().unwrap();
     let path = workspace.fixture_path().join("before.bin");
     fs::write(&path, b"verified preimage").unwrap();
     let mut before = workspace.root().open_file(&name("before.bin")).unwrap();
     assert!(fs::OpenOptions::new().write(true).open(&path).is_err());
     assert!(fs::remove_file(&path).is_err());
-    assert!(fs::hard_link(&path, workspace.fixture_path().join("alias.bin")).is_err());
     assert_eq!(contents(&mut before), b"verified preimage");
     assert!(matches!(
         before.write_all(b"forbidden"),
         Err(Error::Unsafe(_))
     ));
+    // NTFS permits a new hard link despite denied write/delete sharing. Do not
+    // assume pinning prevents it: every operation must reject changed link count.
+    fs::hard_link(&path, workspace.fixture_path().join("alias.bin")).unwrap();
+    assert!(matches!(
+        before.read(&mut [0; 64]),
+        Err(Error::Unsafe("hard-linked file"))
+    ));
+    assert!(matches!(
+        before.rename_new(&workspace.root(), &name("quarantine.bin")),
+        Err(Error::Unsafe("hard-linked file"))
+    ));
+    assert_eq!(fs::read(&path).unwrap(), b"verified preimage");
+    assert_eq!(
+        fs::read(workspace.fixture_path().join("alias.bin")).unwrap(),
+        b"verified preimage"
+    );
 }
 
 #[test]

@@ -175,7 +175,9 @@ impl PinnedFile {
     /// Bounded caller buffer; no whole-file allocation or truncation.
     pub fn read(&mut self, buffer: &mut [u8]) -> Result<usize> {
         self.recheck()?;
-        self.file.read(buffer).map_err(io_error)
+        let count = self.file.read(buffer).map_err(io_error)?;
+        self.recheck()?;
+        Ok(count)
     }
 
     pub fn rewind(&mut self) -> Result<()> {
@@ -189,7 +191,8 @@ impl PinnedFile {
             return Err(Error::Unsafe("preimage is not writable"));
         }
         self.recheck()?;
-        self.file.write_all(bytes).map_err(io_error)
+        self.file.write_all(bytes).map_err(io_error)?;
+        self.recheck()
     }
 
     /// File flush, deliberately not a directory/transaction durability claim.
@@ -198,7 +201,8 @@ impl PinnedFile {
             return Err(Error::Unsafe("flush requires write access"));
         }
         self.recheck()?;
-        self.file.sync_all().map_err(io_error)
+        self.file.sync_all().map_err(io_error)?;
+        self.recheck()
     }
 
     /// Handle-based same-volume rename. Never replaces an existing destination.
