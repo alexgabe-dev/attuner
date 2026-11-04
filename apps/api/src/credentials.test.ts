@@ -53,6 +53,11 @@ it.skipIf(process.platform === 'win32')(
     const directory = await fixture(),
       file = join(directory, 'token-delivery-key');
     await writeFile(file, randomBytes(32), { mode: 0o600 });
+    await chmod(directory, 0o755);
+    await expect(
+      runtimeCredential('token-delivery-key', 32, { CREDENTIALS_DIRECTORY: directory }),
+    ).rejects.toThrow('Unsafe');
+    await chmod(directory, 0o700);
     await chmod(file, 0o644);
     await expect(
       runtimeCredential('token-delivery-key', 32, { CREDENTIALS_DIRECTORY: directory }),
