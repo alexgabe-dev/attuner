@@ -62,6 +62,9 @@ mod native;
 #[cfg(windows)]
 pub use native::{Directory, Identity, PinnedFile, SyntheticWorkspace};
 
+#[cfg(all(test, windows))]
+mod recovery_qualification;
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -13,7 +13,15 @@ Local validation passed: repository Prettier check, Rust formatter, workspace Cl
 
 First native CI run [41844993531](https://github.com/alexgabe-dev/attuner/actions/runs/41844993531) passed Linux and macOS; Windows passed nine of ten new handle tests and exposed a false assumption in the concurrent-hard-link test: NTFS allows creating a hard link despite denied write/delete sharing. Revised the test to require actual alias creation followed by fail-closed read/rename refusal and original-byte preservation. Added post-I/O identity/link checks. This does not prove absence of all link-count races; staged files are newly minted, preimages are never writable, and production apply remains gated.
 
-Pending: corrected native Windows Server CI and the physical Windows 11 bundle run. Cross-compilation is not a runtime pass. W2 full journal/recovery integration and Unicode namespace inventory remain pending; no power-loss or Defender-specific pass is claimed.
+Corrected run [41846371470](https://github.com/alexgabe-dev/attuner/actions/runs/41846371470) passed Linux, macOS and Windows Server 2022. All ten handle tests passed natively and again in the standalone bundle. The physical Windows 11 run remains pending; no power-loss or Defender-specific pass is claimed.
+
+## W2 — isolated Windows recovery qualification (candidate; engine integration pending)
+
+- Added a test-only, one-file native transaction/recovery harness. Bounded original-byte BLAKE3 verification, verified backups/staging, flushed hash-chained create-new records and no-clobber transitions preserve original material. It does not replace the existing production SQLite journal or expose new Tauri operations.
+- Seven application boundaries and four rollback boundaries use real child-process termination, including repeated recovery. Additional cases cover partial backup/record writes, injected disk-full, failed staging verification, corrupt/missing backups, corrupt journals, concurrent edits/creations and sharing interference. Partial unreceipted record stages are retained, never adopted or deleted.
+- Extended the standalone bundle/report to schema 3 with the native recovery executable, exact five-executable inventory and separate harness/full-engine/power-loss/signing gates.
+- Cross-target MSVC compilation/Clippy passed; portable host test passed. Native recovery test execution is pending Windows CI. BLAKE3 `pure` is used only for macOS-to-Windows type checks, not runtime qualification or performance.
+- Full Windows engine adapter/SQLite-journal integration, multi-file Unicode namespace parity, cancellation/game-state matrix, physical Windows 11 and reviewed namespace durability remain open. Windows apply stays disabled.
 
 ## External release gates
 

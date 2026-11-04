@@ -1,6 +1,6 @@
 # Standalone Windows 11 qualification
 
-No runner, Rust compiler, Node installation or administrator shell is required for this bundle. It contains Windows-native handle-safety tests, prerequisite probes, protocol tests, a Credential Manager round-trip and a portable debug desktop app. Every filesystem test mints its own synthetic temporary directory. Nothing searches for or opens a WoW installation.
+No runner, Rust compiler, Node installation or administrator shell is required for this bundle. It contains Windows-native handle-safety tests, a synthetic process-interruption recovery harness, prerequisite probes, protocol tests, a Credential Manager round-trip and a portable debug desktop app. Every filesystem test mints its own synthetic temporary directory. Nothing searches for or opens a WoW installation.
 
 Windows filesystem apply is deliberately disabled. Passing these probes is **prerequisite evidence**, not completed Windows recovery qualification. Do not power-cycle your physical PC for this stage.
 
@@ -15,7 +15,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Qualify-Windows.ps1
 
 `ExecutionPolicy Bypass` applies only to this process; it does not change machine policy. The script creates `results\<timestamp>\report.json` and individual logs beside the extracted files. It never deletes your existing files. The credential test creates and removes only its own random `app.attuner.desktop.tests` entry.
 
-The schema-2 report records Windows edition/build, architecture, source commit and four test executable exit codes. `synthetic_native_handles_passed` means those tests passed; application recovery, power-loss durability, signing and desktop visual review remain separate unqualified gates. The handle suite exercises pinned-parent traversal and identity, no-clobber renames, junction/hard-link rejection, case aliases, concurrent write/delete/link interference and read-only/locked entries. It does not change Defender or permissions to make an operation succeed. ARM64 running the x64 bundle is compatibility evidence only; native ARM64 qualification remains separate.
+The schema-3 report records Windows edition/build, architecture, source commit and five test executable exit codes. `synthetic_native_recovery_passed` means those tests passed; complete engine application/recovery, power-loss durability, signing and desktop visual review remain separate unqualified gates. `nativeRecoveryHarnessPassed` describes the isolated one-file native experiment, not the complete engine's SQLite transaction.
+
+The handle suite exercises pinned-parent traversal and identity, no-clobber renames, junction/hard-link rejection, case aliases, concurrent write/delete interference and read-only/locked entries. NTFS can add hard links while a handle is pinned; checks require detection/refusal, not a false claim that sharing flags prevent it. The recovery executable terminates its own synthetic child processes at seven application and four rollback boundaries, checks byte preservation/retry, corrupt/missing backup and journal rejection, retained partial record stages, simulated disk-full short writes, verification failure, concurrent edits/creations and locked-file interference. It never fills your disk, kills other applications, changes permissions to make an operation succeed, changes Defender or reboots the machine. The one ignored child entry point is invoked by its parent matrices; do not run `--ignored` manually. ARM64 running the x64 bundle is compatibility evidence only; native ARM64 qualification remains separate.
 
 ## Desktop review
 
@@ -47,6 +49,6 @@ Create a synthetic profile in the HTTPS web dashboard, choose **Connect device**
 
 ## Evidence to return
 
-Return `report.json`, the four test logs, screenshots and any reproduction steps. Review those files before sharing; they contain no account tokens, but an operating-system error can include your local temporary path. Report missing WebView2, application launch failure, antivirus interference or unexpected prompts rather than changing system policy.
+Return `report.json`, the five test logs, screenshots and any reproduction steps. Review those files before sharing; they contain no account tokens, but an operating-system error can include your local temporary path. Keep Defender in its normal enabled configuration and report quarantine/Controlled Folder Access/sharing failures with their timestamps. Do not add exclusions or retry with elevation to manufacture a pass. Report missing WebView2, application launch failure, antivirus interference or unexpected prompts rather than changing system policy.
 
 The remaining write/apply qualification requires a reviewed Windows-native journal/durability implementation, its complete interruption/recovery suite and controlled retained-disk reset testing. A physical-PC reboot is not a substitute for a controlled fault environment. Until that gate is closed, Attuner must continue to refuse Windows filesystem application.

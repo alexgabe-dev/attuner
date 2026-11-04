@@ -98,6 +98,36 @@ impl SyntheticWorkspace {
 }
 
 impl Directory {
+    /// Child-test handoff only; never compiled into the desktop/production library.
+    #[cfg(test)]
+    pub(crate) fn attach_test_root(path: &Path, expected: Identity) -> Result<Self> {
+        if path.parent().ok_or(Error::Changed)?.canonicalize()?
+            != std::env::temp_dir().canonicalize()?
+            || !path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .is_some_and(|n| n.starts_with("attuner-handle-lab-"))
+        {
+            return Err(Error::Unsafe("not a minted qualification root"));
+        }
+        let file = OpenOptions::new()
+            .access_mode(FILE_READ_ATTRIBUTES | SYNCHRONIZE)
+            .share_mode(FILE_SHARE_READ)
+            .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+            .open(path)
+            .map_err(io_error)?;
+        local_ntfs(&file)?;
+        let identity = check(&file, true, Some(expected.volume))?;
+        if identity != expected {
+            return Err(Error::Changed);
+        }
+        Ok(Self(Arc::new(DirectoryInner {
+            file,
+            identity,
+            _parent: None,
+        })))
+    }
+
     pub fn identity(&self) -> Identity {
         self.0.identity
     }
