@@ -29,6 +29,14 @@ Corrected run [41846371470](https://github.com/alexgabe-dev/attuner/actions/runs
 - Physical Windows 11 qualification to be run locally by the user. No self-hosted runner required.
 - No production/staging VPS deployment authorized; files and local tests only.
 
+## W3 — policy-preserving standalone Windows runner (native runtime pending)
+
+- Replaced the recommended PowerShell execution-policy bypass with a native Rust qualification executable. The optional PowerShell wrapper uses the existing policy unchanged. OS/enterprise blocks are reported, never bypassed.
+- Exact schema-4 checksummed inventory, bounded streamed hashing, pinned non-reparse parent directories and retained no-write/no-delete file handles prevent validating one bundle and launching a substituted directory. Five serial synthetic test executables have individual logs and 180-second limits.
+- The driver joins its own unnamed kill-on-close Windows Job Object before launching children; descendant containment is checked before publishing the aggregate report. Reports are minted under the user's private temporary directory and keep engine apply, power-loss, signing and manual desktop review as separate unqualified gates.
+- Added an explicit native Windows assertion that the full engine mutation gate remains closed. Windows Server CI now invokes the exact standalone executable intended for the physical Windows 11 procedure.
+- Rust formatting, workspace Clippy and MSVC cross-target Clippy with warnings denied passed locally. Native runtime results are pending CI; this milestone does not qualify the full engine, physical Windows 11 or power-loss durability.
+
 ## D1 — distribution preparation (account-dependent qualification blocked)
 
 - Added macOS app/DMG and per-user Windows NSIS configurations, retaining the application identifier/deep-link/credential service. Windows packaging does not install WebView2.

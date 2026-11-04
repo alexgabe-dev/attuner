@@ -66,7 +66,15 @@ jobs:
         shell: pwsh
         run: |
           $attunerBundle = Get-ChildItem artifacts -Directory -Filter 'windows-qualification-*' | Select-Object -First 1
-          & (Join-Path $attunerBundle.FullName 'Qualify-Windows.ps1') -AllowServer
+          $attunerOutput = & (Join-Path $attunerBundle.FullName 'Qualify-Windows.exe') --allow-server
+          $attunerOutput | Write-Output
+          if ($LASTEXITCODE -ne 0) { throw 'Native standalone qualification failed.' }
+          $attunerResult = @($attunerOutput | Where-Object { $_ -match '^Results: ' })
+          if ($attunerResult.Count -ne 1) { throw 'Expected one native results directory.' }
+          $attunerResultPath = $attunerResult[0].Substring(9)
+          if ([IO.Path]::GetDirectoryName($attunerResultPath).TrimEnd('\') -ine [IO.Path]::GetTempPath().TrimEnd('\') -or -not [IO.Path]::GetFileName($attunerResultPath).StartsWith('attuner-windows-results-')) { throw 'Unexpected native results location.' }
+          if ((Get-Item -LiteralPath $attunerResultPath).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Unsafe results directory.' }
+          Copy-Item -LiteralPath $attunerResultPath -Destination (Join-Path $attunerBundle.FullName 'results') -Recurse
       - uses: actions/upload-artifact@v4
         if: runner.os == 'Windows'
         with:

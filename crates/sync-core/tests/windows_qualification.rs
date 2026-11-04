@@ -12,6 +12,13 @@ use windows_sys::Win32::Storage::FileSystem::{
     FILE_FLAG_OPEN_REPARSE_POINT, GetFileInformationByHandle, GetVolumeInformationByHandleW,
     MOVEFILE_WRITE_THROUGH, MoveFileExW,
 };
+#[test]
+fn full_engine_windows_mutation_gate_remains_closed() {
+    assert!(matches!(
+        attuner_sync_core::Engine::create_fixture(1, &attuner_sync_core::Control::fixture()),
+        Err(attuner_sync_core::Error::Platform)
+    ));
+}
 fn wide(path: &Path) -> Vec<u16> {
     path.as_os_str().encode_wide().chain(Some(0)).collect()
 }
