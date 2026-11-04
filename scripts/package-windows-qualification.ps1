@@ -8,6 +8,7 @@ $attunerOutput = Join-Path $attunerRoot ('artifacts/windows-qualification-' + $a
 if (Test-Path $attunerOutput) { throw 'Refusing to overwrite an existing qualification bundle.' }
 New-Item -ItemType Directory -Path $attunerOutput | Out-Null
 $attunerTargets = @(
+    @{ Package = 'attuner-platform-windows'; Target = 'handle_safety'; Kind = '--test'; File = 'handle-safety.exe' },
     @{ Package = 'attuner-sync-core'; Target = 'windows_qualification'; Kind = '--test'; File = 'ntfs-probes.exe' },
     @{ Package = 'attuner-sync-core'; Target = 'attuner_sync_core'; Kind = '--lib'; File = 'protocol-tests.exe' },
     @{ Package = 'attuner-sync-client'; Target = 'attuner_sync_client'; Kind = '--lib'; File = 'credential-tests.exe' }
@@ -25,5 +26,5 @@ Copy-Item -LiteralPath (Join-Path $attunerRoot 'target/debug/attuner-desktop.exe
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'qualify-windows.ps1') -Destination (Join-Path $attunerOutput 'Qualify-Windows.ps1')
 Copy-Item -LiteralPath (Join-Path $attunerRoot 'docs/operations/windows-11-qualification.md') -Destination (Join-Path $attunerOutput 'README.md')
 $attunerFiles = @(Get-ChildItem -LiteralPath $attunerOutput -File | Sort-Object Name | ForEach-Object { @{ name = $_.Name; sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() } })
-@{ schemaVersion = 1; sourceCommit = $attunerCommit; target = 'x86_64-pc-windows-msvc'; rust = (& rustc --version); files = $attunerFiles; filesystemApplyEnabled = $false } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $attunerOutput 'manifest.json') -Encoding UTF8
+@{ schemaVersion = 2; sourceCommit = $attunerCommit; target = 'x86_64-pc-windows-msvc'; rust = (& rustc --version); files = $attunerFiles; filesystemApplyEnabled = $false; scope = 'synthetic_native_handles'; signed = $false } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $attunerOutput 'manifest.json') -Encoding UTF8
 Write-Output $attunerOutput

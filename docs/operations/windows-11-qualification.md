@@ -1,12 +1,12 @@
 # Standalone Windows 11 qualification
 
-No runner, Rust compiler, Node installation or administrator shell is required for this bundle. It contains the Windows-native prerequisite probes, protocol tests, a Credential Manager round-trip and a portable debug desktop app. Every filesystem test mints its own synthetic temporary directory. Nothing searches for or opens a WoW installation.
+No runner, Rust compiler, Node installation or administrator shell is required for this bundle. It contains Windows-native handle-safety tests, prerequisite probes, protocol tests, a Credential Manager round-trip and a portable debug desktop app. Every filesystem test mints its own synthetic temporary directory. Nothing searches for or opens a WoW installation.
 
 Windows filesystem apply is deliberately disabled. Passing these probes is **prerequisite evidence**, not completed Windows recovery qualification. Do not power-cycle your physical PC for this stage.
 
 ## Download and run
 
-1. In the Attuner GitHub repository, open **Actions → Attuner verification**, choose a successful run on `phase3-secure-sync`, and download **attuner-windows-qualification**. Check its source commit against `manifest.json` after extracting the ZIP into a new local folder, for example `Documents\AttunerQualification`.
+1. In the Attuner GitHub repository, open **Actions → Attuner verification**, choose a successful run on `phase4-beta-readiness`, and download **attuner-windows-qualification**. Check its source commit against `manifest.json` after extracting the ZIP into a new local folder, for example `Documents\AttunerQualification`. These unsigned checksums detect incomplete/changed files; they do not authenticate a ZIP obtained outside the trusted repository/run.
 2. Open a normal PowerShell window in the extracted folder. The script verifies every bundled file against the manifest before executing anything. Run:
 
 ```powershell
@@ -15,7 +15,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Qualify-Windows.ps1
 
 `ExecutionPolicy Bypass` applies only to this process; it does not change machine policy. The script creates `results\<timestamp>\report.json` and individual logs beside the extracted files. It never deletes your existing files. The credential test creates and removes only its own random `app.attuner.desktop.tests` entry.
 
-The report records Windows edition/build, architecture, source commit and test exit codes. It intentionally leaves application recovery and desktop visual review unqualified. ARM64 running the x64 bundle is compatibility evidence only; native ARM64 qualification remains separate.
+The schema-2 report records Windows edition/build, architecture, source commit and four test executable exit codes. `synthetic_native_handles_passed` means those tests passed; application recovery, power-loss durability, signing and desktop visual review remain separate unqualified gates. The handle suite exercises pinned-parent traversal and identity, no-clobber renames, junction/hard-link rejection, case aliases, concurrent write/delete/link interference and read-only/locked entries. It does not change Defender or permissions to make an operation succeed. ARM64 running the x64 bundle is compatibility evidence only; native ARM64 qualification remains separate.
 
 ## Desktop review
 
@@ -47,6 +47,6 @@ Create a synthetic profile in the HTTPS web dashboard, choose **Connect device**
 
 ## Evidence to return
 
-Return `report.json`, the three test logs, screenshots and any reproduction steps. Review those files before sharing; they contain no account tokens, but an operating-system error can include your local temporary path. Report missing WebView2, application launch failure, antivirus interference or unexpected prompts rather than changing system policy.
+Return `report.json`, the four test logs, screenshots and any reproduction steps. Review those files before sharing; they contain no account tokens, but an operating-system error can include your local temporary path. Report missing WebView2, application launch failure, antivirus interference or unexpected prompts rather than changing system policy.
 
 The remaining write/apply qualification requires a reviewed Windows-native journal/durability implementation, its complete interruption/recovery suite and controlled retained-disk reset testing. A physical-PC reboot is not a substitute for a controlled fault environment. Until that gate is closed, Attuner must continue to refuse Windows filesystem application.
