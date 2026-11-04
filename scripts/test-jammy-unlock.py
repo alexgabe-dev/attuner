@@ -54,6 +54,7 @@ class Boundary(unittest.TestCase):
         with self.assertRaises(subprocess.SubprocessError):
             self.unlock(fail)
         self.assertFalse((self.output / "backup.ready").exists())
+
         self.assertFalse((self.output / "backup.key").exists())
         stages = list(self.output.glob(".unlock-*"))
         self.assertEqual(len(stages), 1)
@@ -123,6 +124,24 @@ class Boundary(unittest.TestCase):
             self.unlock(actual)
         self.assertFalse((self.output / "backup.key").exists())
         self.assertFalse((self.output / "backup.ready").exists())
+
+        # Production decoder must not echo a misfiled plaintext secret as an
+        # age parsing error. Capture the real child's stderr, not a mock call.
+        self.ciphertext.write_bytes(b"synthetic-private-marker-not-an-age-file\n")
+        captured = self.root / "provider-stderr"
+        previous_age = module.AGE
+        saved = os.dup(2)
+        try:
+            module.AGE = age
+            with captured.open("wb") as errors:
+                os.dup2(errors.fileno(), 2)
+                with self.assertRaises(subprocess.SubprocessError):
+                    self.unlock(module.decode)
+        finally:
+            os.dup2(saved, 2)
+            os.close(saved)
+            module.AGE = previous_age
+        self.assertEqual(captured.read_bytes(), b"")
 
 
 if __name__ == "__main__":

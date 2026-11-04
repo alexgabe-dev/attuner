@@ -28,7 +28,9 @@ def private(info, directory=False):
 
 
 def decode(source, output):
-    subprocess.run([AGE, "--decrypt"], stdin=source, stdout=output,
+    # age's terminal prompt opens /dev/tty directly. Suppress diagnostic stderr:
+    # malformed headers can otherwise echo accidental input bytes to a log.
+    subprocess.run([AGE, "--decrypt"], stdin=source, stdout=output, stderr=subprocess.DEVNULL,
                    check=True, timeout=180, env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"})
 
 

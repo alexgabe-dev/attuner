@@ -102,7 +102,9 @@ if (process.argv[2] === 'probe') {
     assert.equal(probe.rootOwnedAclPathExercised, !privateOwner);
     assert.equal(probe.privateOwnerPathExercised, privateOwner);
     await writeFile(
-      'artifacts/phase-4/systemd-credential-qualification-linux.json',
+      loadMarker
+        ? '.runtime/jammy-systemd-credential-qualification.json'
+        : 'artifacts/phase-4/systemd-credential-qualification-linux.json',
       JSON.stringify(
         {
           schemaVersion: 1,
