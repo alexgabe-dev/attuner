@@ -63,12 +63,16 @@ impl Fixture {
         Self::with_blobs(false)
     }
     fn with_blobs(blobs: bool) -> Self {
+        Self::with_options(blobs, false)
+    }
+    fn with_options(blobs: bool, recovery: bool) -> Self {
         let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
         let mut child = Command::new("node")
             .arg(root.join("apps/api/src/testing/native-fixture.ts"))
             .current_dir(root)
             .env("ATTUNER_TEST_FIXTURE", "1")
             .env("ATTUNER_TEST_BLOBS", if blobs { "1" } else { "0" })
+            .env("ATTUNER_TEST_RECOVERY", if recovery { "1" } else { "0" })
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::inherit())
@@ -1027,4 +1031,131 @@ fn restoring_known_content_publishes_a_new_revision_without_export_or_upload() {
     drop(coordinator);
     drop(engine);
     std::fs::remove_dir_all(path).unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn three_native_clients_reconnect_after_encrypted_restore_and_refuse_regression() {
+    use attuner_sync_client::{BootstrapChoice, Coordinator};
+    use attuner_sync_core::Control;
+    let mut fixture = Fixture::with_options(true, true);
+    let mut clients = [
+        fixture.enrolled_client("Recovery north"),
+        fixture.enrolled_client("Recovery west"),
+        fixture.enrolled_client("Recovery east"),
+    ];
+    let mut engines = [
+        fixture.bound_engine(),
+        fixture.bound_engine(),
+        fixture.bound_engine(),
+    ];
+    explicit_sync(&mut engines[0], &mut clients[0], BootstrapChoice::Local);
+    for index in 1..3 {
+        explicit_sync(
+            &mut engines[index],
+            &mut clients[index],
+            BootstrapChoice::Remote,
+        );
+    }
+    let original = clients[0].fetch_head(&fixture.profile_id).unwrap().head;
+    let first = fixture.command(json!({"kind":"backupServer"}));
+    let first_id = first["backupId"].as_str().unwrap().to_owned();
+    let paths = engines.each_ref().map(|engine| engine.path().to_owned());
+    let file = "installation/ProfileData/SavedVariables/WeakAuras.lua";
+    std::fs::write(
+        paths[0].join(file),
+        b"new synthetic revision before disaster\r\n",
+    )
+    .unwrap();
+    explicit_sync(&mut engines[0], &mut clients[0], BootstrapChoice::Local);
+    for index in 1..3 {
+        explicit_sync(
+            &mut engines[index],
+            &mut clients[index],
+            BootstrapChoice::Remote,
+        );
+    }
+    let latest = clients[0].fetch_head(&fixture.profile_id).unwrap().head;
+    assert!(latest.revision > original.revision);
+    let bytes = paths
+        .each_ref()
+        .map(|path| std::fs::read(path.join(file)).unwrap());
+    let latest_backup = fixture.command(json!({"kind":"backupServer"}));
+    let latest_id = latest_backup["backupId"].as_str().unwrap().to_owned();
+    let restored = fixture.command(json!({"kind":"restoreServer","backupId":latest_id}));
+    assert_eq!(restored["restored"], true);
+    assert_eq!(restored["serverId"], first["serverId"]);
+    // Captured credentials are revoked, so a point-in-time restore cannot
+    // resurrect a device revoked after capture. No local history is discarded.
+    for client in &mut clients {
+        assert!(matches!(
+            client.fetch_head(&fixture.profile_id),
+            Err(Error::Authentication)
+        ));
+        assert!(
+            client.status().enrolled,
+            "recovery never erases local credentials"
+        );
+    }
+    assert_eq!(
+        fixture.command(json!({"kind":"recoverAdministrator"}))["recovered"],
+        true
+    );
+    for (index, client) in clients.iter_mut().enumerate() {
+        *client = fixture.enrolled_client(&format!("Explicitly reenrolled {index}"));
+        assert_eq!(client.fetch_head(&fixture.profile_id).unwrap().head, latest);
+    }
+    assert_eq!(
+        fixture.command(json!({"kind":"restoreServer","backupId":first_id}))["restored"],
+        true
+    );
+    assert_eq!(
+        fixture.command(json!({"kind":"recoverAdministrator"}))["recovered"],
+        true
+    );
+    for index in 0..3 {
+        clients[index] = fixture.enrolled_client(&format!("Regression review {index}"));
+        let result = Coordinator::new(
+            &mut engines[index],
+            &mut clients[index],
+            &Control::fixture(),
+        )
+        .unwrap()
+        .prepare();
+        assert!(
+            matches!(result, Err(Error::Engine(_))),
+            "older restored head must be refused"
+        );
+        assert_eq!(
+            engines[index]
+                .remote_baseline(&Control::fixture())
+                .unwrap()
+                .unwrap()
+                .head,
+            latest
+        );
+        assert_eq!(
+            std::fs::read(paths[index].join(file)).unwrap(),
+            bytes[index]
+        );
+    }
+    assert_eq!(
+        fixture.command(json!({"kind":"changeServerIdentity"}))["changed"],
+        true
+    );
+    for client in &mut clients {
+        assert!(matches!(
+            client.fetch_head(&fixture.profile_id),
+            Err(Error::ServerIdentity)
+        ));
+        assert!(matches!(
+            client.request("GET", "/api/v1/profiles", None, None),
+            Err(Error::ServerIdentity)
+        ));
+        assert!(client.status().enrolled);
+    }
+    drop(engines);
+    for path in paths {
+        std::fs::remove_dir_all(path).unwrap();
+    }
 }

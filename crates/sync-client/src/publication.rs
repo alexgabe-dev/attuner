@@ -29,6 +29,7 @@ pub struct CandidateSession {
 }
 impl DeviceClient {
     pub fn fetch_head(&mut self, profile: &str) -> Result<ProfileHead> {
+        self.connection.revalidate()?;
         if uuid::Uuid::parse_str(profile).is_err() {
             return Err(Error::Protocol);
         }

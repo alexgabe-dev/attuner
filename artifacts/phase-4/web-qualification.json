@@ -1,0 +1,25 @@
+{
+  "scope": "isolated synthetic data",
+  "source": "local worktree",
+  "driver": "authenticated TypeScript protocol fixtures; Rust clients are qualified separately",
+  "passed": true,
+  "checks": [
+    "HTTPS login",
+    "profile creation",
+    "three scoped fixture devices",
+    "immutable revisions",
+    "modification/deletion conflict proposal",
+    "verified content preview",
+    "device revocation with reauthentication",
+    "all navigation views",
+    "1440/768/390 responsive widths",
+    "automated WCAG checks",
+    "no browser runtime errors"
+  ],
+  "viewports": [
+    1440,
+    768,
+    390
+  ],
+  "timestamp": "2026-11-04T14:54:54.524Z"
+}

@@ -5,7 +5,7 @@ use reqwest::{
     redirect::Policy,
 };
 use serde::Deserialize;
-use std::{io::Read, time::Duration};
+use std::{cell::Cell, io::Read, time::Duration};
 #[derive(Clone, Debug, serde::Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PublicServer {
@@ -25,6 +25,7 @@ pub struct ServerConnection {
     pub(crate) client: Client,
     pub(crate) origin: String,
     pub info: PublicServer,
+    identity_rejected: Cell<bool>,
 }
 impl ServerConnection {
     pub fn connect(origin: &str, certificate_pem: Option<&str>) -> Result<Self> {
@@ -74,12 +75,43 @@ impl ServerConnection {
             client,
             origin,
             info,
+            identity_rejected: Cell::new(false),
         })
     }
     pub fn origin(&self) -> &str {
         &self.origin
     }
+    /// Recheck the enrolled server's public identity at a foreground comparison
+    /// boundary. A restored/replaced service must not silently inherit trust.
+    pub fn revalidate(&self) -> Result<()> {
+        if self.identity_rejected.get() {
+            return Err(Error::ServerIdentity);
+        }
+        let response = self
+            .client
+            .get(format!("{}/api/v1/capabilities", self.origin))
+            .send()
+            .map_err(|_| Error::Transport)?;
+        if !response.status().is_success() {
+            return Err(Error::Protocol);
+        }
+        let info: PublicServer =
+            serde_json::from_slice(&limited(response, 65536)?).map_err(|_| Error::Protocol)?;
+        if info.server_id != self.info.server_id {
+            self.identity_rejected.set(true);
+            return Err(Error::ServerIdentity);
+        }
+        if info.protocol_version != self.info.protocol_version
+            || info.namespace_version != self.info.namespace_version
+        {
+            return Err(Error::Protocol);
+        }
+        Ok(())
+    }
     pub(crate) fn endpoint(&self, path: &str) -> Result<String> {
+        if self.identity_rejected.get() {
+            return Err(Error::ServerIdentity);
+        }
         if !path.starts_with("/api/v1/") || path.contains(['#', '\\']) || path.len() > 2048 {
             return Err(Error::Protocol);
         }

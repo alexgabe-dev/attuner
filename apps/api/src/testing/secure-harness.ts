@@ -18,13 +18,14 @@ export async function secureHarness(
     transformResponse?: (path: string, payload: string | Buffer | null) => string | Buffer | null;
   } = {},
 ) {
-  const tls = await tlsFixture(),
-    db = await DatabaseWorker.open(options.databaseFilename);
+  const tls = await tlsFixture();
+  let db = await DatabaseWorker.open(options.databaseFilename);
+  let deliveryKey = randomBytes(32);
   let clock = Math.floor(Date.now() / 1000);
-  const { app, security } = await createSecureApp(db, {
+  let { app, security } = await createSecureApp(db, {
     ...options,
     tls: tls.tls,
-    deliveryKey: randomBytes(32),
+    deliveryKey,
     now: () => clock,
   });
   if (options.transformResponse)
@@ -105,10 +106,16 @@ export async function secureHarness(
     });
   }
   return {
-    app,
+    get app() {
+      return app;
+    },
     ca: tls.ca.toString('utf8'),
-    security,
-    db,
+    get security() {
+      return security;
+    },
+    get db() {
+      return db;
+    },
     origin,
     send,
     login,
@@ -117,10 +124,37 @@ export async function secureHarness(
     advance: (seconds: number) => {
       clock += seconds;
     },
+    quiesceStorage: async () => {
+      await app.close();
+      await db.close();
+    },
+    restartStorage: async (filename: string, blobDirectory: string, rotateDeliveryKey = false) => {
+      await app.close();
+      await db.close();
+      if (rotateDeliveryKey) {
+        deliveryKey.fill(0);
+        deliveryKey = randomBytes(32);
+      }
+      db = await DatabaseWorker.open(filename);
+      ({ app, security } = await createSecureApp(db, {
+        tls: tls.tls,
+        deliveryKey,
+        blobDirectory,
+        now: () => clock,
+      }));
+      if (options.transformResponse)
+        app.addHook('onSend', async (request, _reply, payload) => {
+          if (typeof payload === 'string' || Buffer.isBuffer(payload) || payload === null)
+            return options.transformResponse!(request.url, payload);
+          return payload;
+        });
+      await app.listen({ host: '127.0.0.1', port: address.port });
+    },
     close: async () => {
       await app.close();
       await db.close();
       await tls.close();
+      deliveryKey.fill(0);
     },
   };
 }

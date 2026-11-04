@@ -49,6 +49,29 @@ export class Security {
   now() {
     return this.options.now?.() ?? Math.floor(Date.now() / 1000);
   }
+  /** Explicit local operator recovery only; no HTTP password-reset endpoint. */
+  async recoverAdministrator(username: string, password: string) {
+    const hash = await passwordHash(password);
+    const rows = await this.db.query<{ id: string }>(
+      "SELECT u.id FROM web_users u JOIN user_security s ON s.user_id=u.id WHERE u.username=? AND s.role='administrator'",
+      [username.toLowerCase()],
+    );
+    if (!rows[0]) throw new Error('Administrator not found.');
+    const id = rows[0].id,
+      now = this.now();
+    await this.db.transaction([
+      { sql: 'UPDATE web_users SET password_hash=? WHERE id=?', params: [hash, id] },
+      {
+        sql: 'UPDATE user_security SET epoch=epoch+1,disabled_at=NULL WHERE user_id=?',
+        params: [id],
+      },
+      {
+        sql: 'UPDATE devices SET revoked_at=coalesce(revoked_at,?) WHERE id IN (SELECT device_id FROM device_owners WHERE user_id=?)',
+        params: [now, id],
+      },
+      ...this.auditStatements({ kind: 'user', id }, 'administrator.recovered', 'local-cli'),
+    ]);
+  }
   async initialize() {
     this.dummy = await passwordHash(secret());
   }

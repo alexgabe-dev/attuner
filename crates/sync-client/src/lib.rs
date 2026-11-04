@@ -22,6 +22,8 @@ pub enum Error {
     Transport,
     #[error("The server address or response is not supported.")]
     Protocol,
+    #[error("The server identity changed. Existing credentials and local history were preserved.")]
+    ServerIdentity,
     #[error("A local resource limit was exceeded.")]
     Limit,
     #[error("Reconnect this device to continue.")]

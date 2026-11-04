@@ -3,8 +3,8 @@ import { resolve } from 'node:path';
 import { mkdir } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { Security } from './security/service.ts';
-import { passwordHash } from './security/primitives.ts';
 import { StringDecoder } from 'node:string_decoder';
+import { assertRestoreReady } from './maintenance/recovery.ts';
 async function readPassword() {
   if (!process.stdin.isTTY)
     throw new Error(
@@ -49,6 +49,7 @@ if (!['bootstrap', 'reset'].includes(command ?? '') || !username)
 const password = await readPassword();
 const directory = resolve(process.env.ATTUNER_DATA_DIR ?? '../../.runtime');
 await mkdir(directory, { recursive: true, mode: 0o700 });
+await assertRestoreReady(directory);
 const database = await DatabaseWorker.open(resolve(directory, 'attuner.sqlite'));
 const security = new Security(database, { key: randomBytes(32), origin: () => '' });
 try {
@@ -56,23 +57,7 @@ try {
     await security.bootstrap(username, password);
     console.log('Administrator created. No public registration is enabled.');
   } else {
-    const hash = await passwordHash(password),
-      rows = await database.query<{ id: string }>(
-        "SELECT u.id FROM web_users u JOIN user_security s ON s.user_id=u.id WHERE u.username=? AND s.role='administrator'",
-        [username.toLowerCase()],
-      );
-    if (!rows[0]) throw new Error('Administrator not found.');
-    const id = rows[0].id,
-      now = security.now();
-    await database.transaction([
-      { sql: 'UPDATE web_users SET password_hash=? WHERE id=?', params: [hash, id] },
-      { sql: 'UPDATE user_security SET epoch=epoch+1 WHERE user_id=?', params: [id] },
-      {
-        sql: 'UPDATE devices SET revoked_at=coalesce(revoked_at,?) WHERE id IN (SELECT device_id FROM device_owners WHERE user_id=?)',
-        params: [now, id],
-      },
-      ...security.auditStatements({ kind: 'user', id }, 'administrator.recovered', 'local-cli'),
-    ]);
+    await security.recoverAdministrator(username, password);
     console.log(
       'Administrator password reset. Existing web sessions and owned device access were revoked.',
     );

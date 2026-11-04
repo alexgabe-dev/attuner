@@ -1,19 +1,31 @@
 // Test-only private IPC controller. No network route or runtime flag enables auto-approval.
 import { createInterface } from 'node:readline';
-import { randomUUID } from 'node:crypto';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { randomBytes, randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { secureHarness } from './secure-harness.ts';
+import { createBackup, restoreBackup } from '../maintenance/recovery.ts';
+import { openMaintenanceDatabase } from '@attuner/database';
 if (process.env.ATTUNER_TEST_FIXTURE !== '1')
   throw new Error('This fixture is only available to the synthetic integration harness.');
-const blobDirectory =
-  process.env.ATTUNER_TEST_BLOBS === '1'
+const recoveryRoot =
+  process.env.ATTUNER_TEST_RECOVERY === '1'
+    ? await mkdtemp(join(tmpdir(), 'attuner-native-recovery-'))
+    : undefined;
+let recoveryData = recoveryRoot ? join(recoveryRoot, 'source') : undefined;
+if (recoveryData) await mkdir(recoveryData, { mode: 0o700 });
+const backupKey = randomBytes(32),
+  backups = new Map<string, string>();
+const blobDirectory = recoveryData
+  ? join(recoveryData, 'blobs')
+  : process.env.ATTUNER_TEST_BLOBS === '1'
     ? await mkdtemp(join(tmpdir(), 'attuner-native-transfer-'))
     : undefined;
 let corruptWireHash = '';
 let loseCommitReply = false;
 const h = await secureHarness({
+  ...(recoveryData ? { databaseFilename: join(recoveryData, 'attuner.sqlite') } : {}),
   ...(blobDirectory ? { blobDirectory } : {}),
   transformResponse: (path, payload) => {
     if (loseCommitReply && path.endsWith('/commit')) {
@@ -33,9 +45,9 @@ const h = await secureHarness({
     return payload;
   },
 });
-const password = randomUUID() + randomUUID();
+let password = randomUUID() + randomUUID();
 await h.security.bootstrap('synthetic-owner', password);
-const session = await h.login('synthetic-owner', password);
+let session = await h.login('synthetic-owner', password);
 const profile = await h.web(
   'POST',
   '/api/v1/profiles',
@@ -59,6 +71,7 @@ for await (const line of lines) {
     hash?: string;
     jobId?: string;
     decisions?: unknown;
+    backupId?: string;
   };
   if (command.kind === 'approve') {
     const response = await h.web(
@@ -142,9 +155,58 @@ for await (const line of lines) {
         reports: reports[0]!.n,
       }) + '\n',
     );
+  } else if (command.kind === 'backupServer' && recoveryRoot && recoveryData) {
+    await h.quiesceStorage();
+    try {
+      const destination = join(recoveryRoot, 'backup-' + randomUUID());
+      const result = await createBackup(recoveryData, destination, { key: backupKey });
+      backups.set(result.backupId, destination);
+      await h.restartStorage(join(recoveryData, 'attuner.sqlite'), join(recoveryData, 'blobs'));
+      process.stdout.write(
+        JSON.stringify({ backupId: result.backupId, serverId: result.summary.serverId }) + '\n',
+      );
+    } catch (error) {
+      await h.restartStorage(join(recoveryData, 'attuner.sqlite'), join(recoveryData, 'blobs'));
+      throw error;
+    }
+  } else if (
+    command.kind === 'restoreServer' &&
+    recoveryRoot &&
+    recoveryData &&
+    backups.has(command.backupId ?? '')
+  ) {
+    await h.quiesceStorage();
+    const restored = join(recoveryRoot, 'restored-' + randomUUID());
+    const result = await restoreBackup(backups.get(command.backupId!)!, restored, {
+      key: backupKey,
+    });
+    recoveryData = restored;
+    await h.restartStorage(join(restored, 'attuner.sqlite'), join(restored, 'blobs'), true);
+    process.stdout.write(
+      JSON.stringify({ restored: true, serverId: result.summary.serverId }) + '\n',
+    );
+  } else if (command.kind === 'recoverAdministrator' && recoveryData) {
+    password = randomUUID() + randomUUID();
+    await h.security.recoverAdministrator('synthetic-owner', password);
+    session = await h.login('synthetic-owner', password);
+    process.stdout.write(JSON.stringify({ recovered: true }) + '\n');
+  } else if (command.kind === 'changeServerIdentity' && recoveryData) {
+    await h.quiesceStorage();
+    const database = openMaintenanceDatabase(join(recoveryData, 'attuner.sqlite'));
+    try {
+      database
+        .prepare("UPDATE server_settings SET value=? WHERE key='server_id'")
+        .run(randomUUID());
+    } finally {
+      database.close();
+    }
+    await h.restartStorage(join(recoveryData, 'attuner.sqlite'), join(recoveryData, 'blobs'));
+    process.stdout.write(JSON.stringify({ changed: true }) + '\n');
   } else if (command.kind === 'stop') {
     break;
   } else process.stdout.write(JSON.stringify({ error: 'unknown-test-command' }) + '\n');
 }
 await h.close();
-if (blobDirectory) await rm(blobDirectory, { recursive: true, force: true });
+backupKey.fill(0);
+if (recoveryRoot) await rm(recoveryRoot, { recursive: true });
+else if (blobDirectory) await rm(blobDirectory, { recursive: true, force: true });

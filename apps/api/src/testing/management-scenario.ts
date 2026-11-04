@@ -150,5 +150,11 @@ export async function managementScenario(
     remoteHead: first,
     reason: 'Offline edits retained. Compare against the latest revision after reconnecting.',
   });
-  return { conflictId, first, second, revokeDeviceId: offline.deviceId };
+  return {
+    conflictId,
+    first,
+    second,
+    revokeDeviceId: offline.deviceId,
+    devices: { mac, windows, offline },
+  };
 }

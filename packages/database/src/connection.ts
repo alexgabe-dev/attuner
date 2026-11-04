@@ -26,3 +26,18 @@ export function openDatabase(filename = ':memory:') {
   }
 }
 export type AttunerDatabase = ReturnType<typeof openDatabase>;
+
+/** Operator maintenance only: exact existing schema, no implicit migrations. */
+export function openMaintenanceDatabase(filename: string, readonly = false) {
+  const sqlite = new Database(filename, { readonly, fileMustExist: true });
+  try {
+    sqlite.pragma('foreign_keys = ON');
+    sqlite.pragma('trusted_schema = OFF');
+    sqlite.pragma('busy_timeout = 100');
+    if (!readonly) sqlite.pragma('synchronous = FULL');
+    return sqlite;
+  } catch (error) {
+    sqlite.close();
+    throw error;
+  }
+}
