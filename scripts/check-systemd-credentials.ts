@@ -4,7 +4,8 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { lstat, writeFile, readFile } from 'node:fs/promises';
+import { lstat, writeFile, readFile, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { runtimeCredential } from '../apps/api/src/credentials.ts';
 const execute = promisify(execFile),
@@ -43,6 +44,12 @@ if (process.argv[2] === 'probe') {
     );
   assert.equal((await readFile('/proc/1/comm', 'utf8')).trim(), 'systemd');
   const unit = `attuner-credential-qualification-${randomUUID()}.service`;
+  const loadMarker = process.argv.includes('--load-marker');
+  const publicSource = loadMarker
+    ? await mkdtemp(join(tmpdir(), 'attuner-public-credential-probe-'))
+    : undefined;
+  if (publicSource)
+    await writeFile(join(publicSource, 'marker'), marker, { mode: 0o600, flag: 'wx' });
   let stdout: string;
   try {
     ({ stdout } = await execute(
@@ -65,7 +72,9 @@ if (process.argv[2] === 'probe') {
         '--property=PrivateNetwork=yes',
         '--property=LimitCORE=0',
         '--property=RuntimeMaxSec=30',
-        `--property=SetCredential=token-delivery-key:${marker}`,
+        publicSource
+          ? `--property=LoadCredential=token-delivery-key:${join(publicSource, 'marker')}`
+          : `--property=SetCredential=token-delivery-key:${marker}`,
         process.execPath,
         '--import',
         'tsx',
@@ -94,8 +103,7 @@ if (process.argv[2] === 'probe') {
           sourceCommit: process.env.GITHUB_SHA,
           systemd: version.split('\n')[0],
           probe,
-          scope:
-            'One owned transient non-networked unit; public non-secret SetCredential marker only.',
+          scope: `One owned transient non-networked unit; public non-secret ${loadMarker ? 'LoadCredential' : 'SetCredential'} marker only.`,
           installationPerformed: false,
           attunerServicesActivated: false,
           vpsAccessed: false,
@@ -134,5 +142,6 @@ if (process.argv[2] === 'probe') {
       ['inactive', 'failed'].includes(state.stdout.trim()),
       'Owned credential probe must not remain active',
     );
+    if (publicSource) await rm(publicSource, { recursive: true });
   }
 }

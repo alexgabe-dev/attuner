@@ -7,10 +7,12 @@ export type ProxyConfig = {
   apiName: string;
   edgeCertificate: string;
   edgeKey: string;
-  passwordFile: string;
+  passwordFile?: string;
   pid: string;
   cache: string;
   accessLog?: string;
+  /** HTTP-context include only; never owns the shared master's process settings. */
+  hosted?: boolean;
 };
 function path(value: string) {
   if (!/^\/[A-Za-z0-9_./-]+$/.test(value) || value.split('/').includes('..'))
@@ -39,20 +41,24 @@ export function renderProxy(config: ProxyConfig): string {
     listenPort !== Number(origin.port || 443)
   )
     throw new Error('Proxy listener must match its HTTPS origin.');
-  return `# Generated Attuner staging configuration. Never log request URIs, headers or bodies.
-worker_processes 2;
-pid ${path(config.pid)};
-error_log /dev/null;
-events { worker_connections 256; }
-http {
-  server_tokens off;
-  map $request_method $attuner_method { default OTHER; GET GET; HEAD HEAD; POST POST; PUT PUT; PATCH PATCH; DELETE DELETE; OPTIONS OPTIONS; }
-  map $uri $attuner_route { default web; ~^/api/v1/health/ health; ~^/api/v1/ api; }
-  log_format attuner_safe escape=json '{"event":"proxy.request","requestId":"$request_id","method":"$attuner_method","route":"$attuner_route","status":$status,"duration":$request_time}';
-  access_log ${path(config.accessLog ?? '/dev/stdout')} attuner_safe;
-  limit_req_zone $binary_remote_addr zone=attuner_requests:10m rate=30r/s;
-  limit_req_zone $binary_remote_addr zone=attuner_login:1m rate=5r/m;
-  limit_conn_zone $binary_remote_addr zone=attuner_connections:1m;
+  if (!config.hosted && !config.passwordFile)
+    throw new Error('Standalone qualification requires an explicit password channel.');
+  const header = config.hosted
+    ? '# Attuner staging HTTP-context include. Does not own other sites or listeners.\n'
+    : `# Generated isolated Attuner qualification gateway.\nworker_processes 2;\npid ${path(config.pid)};\nerror_log /dev/null;\nevents { worker_connections 256; }\nhttp {\n${['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'].map((name) => `${name}_temp_path ${path(config.cache + '/' + name)};`).join('\n')}\n`;
+  return `${header}
+  map $request_method $attuner_staging_method { default OTHER; GET GET; HEAD HEAD; POST POST; PUT PUT; PATCH PATCH; DELETE DELETE; OPTIONS OPTIONS; }
+  map $uri $attuner_staging_route { default web; ~^/api/v1/health/ health; ~^/api/v1/ api; }
+  log_format attuner_staging_safe escape=json '{"event":"proxy.request","requestId":"$request_id","method":"$attuner_staging_method","route":"$attuner_staging_route","status":$status,"duration":$request_time}';
+  limit_req_zone $binary_remote_addr zone=attuner_staging_requests:1m rate=30r/s;
+  limit_req_zone $binary_remote_addr zone=attuner_staging_login:1m rate=5r/m;
+  limit_conn_zone $binary_remote_addr zone=attuner_staging_connections:1m;
+  server {
+    listen ${config.listen} ssl;
+    server_name ${origin.hostname};
+    server_tokens off;
+    error_log /dev/null;
+    access_log ${path(config.accessLog ?? '/dev/stdout')} attuner_staging_safe;
   client_body_temp_path ${path(config.cache + '/body')};
   proxy_temp_path ${path(config.cache + '/proxy')};
   fastcgi_temp_path ${path(config.cache + '/fastcgi')};
@@ -66,20 +72,17 @@ http {
   client_header_timeout 15s;
   keepalive_timeout 15s;
   send_timeout 65s;
-  server {
-    listen ${config.listen} ssl;
-    server_name ${origin.hostname};
     if ($host != "${origin.hostname}") { return 444; }
     ssl_certificate ${path(config.edgeCertificate)};
     ssl_certificate_key ${path(config.edgeKey)};
-    ssl_password_file ${path(config.passwordFile)};
+    ${config.passwordFile ? `ssl_password_file ${path(config.passwordFile)};` : '# TLS key remains under the existing host certificate-management policy.'}
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_session_tickets off;
     add_header Strict-Transport-Security "max-age=86400" always;
     add_header X-Content-Type-Options nosniff always;
     add_header Referrer-Policy no-referrer always;
-    limit_req zone=attuner_requests burst=120 nodelay;
-    limit_conn attuner_connections 32;
+    limit_req zone=attuner_staging_requests burst=120 nodelay;
+    limit_conn attuner_staging_connections 32;
     limit_req_status 429;
     limit_conn_status 429;
     proxy_http_version 1.1;
@@ -100,12 +103,12 @@ http {
     proxy_ssl_verify on;
     proxy_ssl_verify_depth 2;
     location = /api/v1/auth/login {
-      limit_req zone=attuner_login burst=5 nodelay;
+      limit_req zone=attuner_staging_login burst=5 nodelay;
       proxy_pass https://127.0.0.1:${config.apiPort};
     }
     location /api/v1/ { proxy_pass https://127.0.0.1:${config.apiPort}; }
     location / { proxy_pass http://127.0.0.1:${config.webPort}; }
   }
-}
+${config.hosted ? '' : '}'}
 `;
 }

@@ -46,6 +46,53 @@ jobs:
         with:
           name: playwright-report
           path: playwright-report/
+  staging-jammy:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.22.2
+      - run: npm install --global pnpm@10.33.4
+      - run: pnpm install --frozen-lockfile
+      - run: sh scripts/prepare-jammy-qualification-tools.sh
+      - run: python3 -B scripts/test-jammy-unlock.py --age "$PWD/.runtime/jammy-tools/root/usr/bin/age"
+      - run: pnpm exec tsx scripts/check-systemd-credentials.ts --load-marker
+      - run: pnpm test
+      - run: pnpm build
+      - run: sh scripts/package-staging-runtime.sh
+      - run: pnpm exec tsx scripts/check-staging-runtime.ts
+      - run: pnpm exec tsx scripts/render-staging.ts https://attuner-staging.example.com .runtime/jammy-bundle
+      - name: Validate actual systemd 249 unit syntax without activation
+        run: |
+          systemd --version
+          # No approved /opt installation exists on CI. Change only ExecStart
+          # in a private probe copy; verify all sandbox/resource directives on 249.
+          cp -r .runtime/jammy-bundle .runtime/jammy-unit-probe
+          sed -i 's|^ExecStart=.*|ExecStart=/bin/true|' .runtime/jammy-unit-probe/*.service
+          systemd-analyze verify .runtime/jammy-unit-probe/*.service .runtime/jammy-unit-probe/*.timer .runtime/jammy-unit-probe/*.slice 2> .runtime/jammy-unit-verification.log
+          test ! -s .runtime/jammy-unit-verification.log
+      - run: pnpm exec playwright install chromium
+      - name: Actual Jammy Nginx shared-host rehearsal
+        env:
+          ATTUNER_QUALIFICATION_NGINX: ${{ github.workspace }}/.runtime/jammy-tools/root/usr/sbin/nginx
+          LD_LIBRARY_PATH: ${{ github.workspace }}/.runtime/jammy-tools/root/usr/lib/x86_64-linux-gnu:${{ github.workspace }}/.runtime/jammy-tools/root/lib/x86_64-linux-gnu
+        run: pnpm test:staging -- --shared-host
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: attuner-staging-jammy-candidate
+          include-hidden-files: true
+          path: |
+            .runtime/attuner-staging-jammy-runtime.*
+            .runtime/jammy-bundle/
+            .runtime/jammy-unit-verification.log
+            .runtime/jammy-tools/*-version.txt
+            artifacts/phase-4/staging-qualification-jammy-shared-linux.json
+            artifacts/phase-4/systemd-credential-qualification-linux.json
+          retention-days: 14
   native:
     strategy:
       fail-fast: false

@@ -17,6 +17,8 @@ import { renderProxy, type ProxyConfig } from '../infrastructure/staging/nginx.t
 
 if (process.platform === 'win32') throw new Error('Staging server qualification targets Unix.');
 const docker = process.argv.includes('--docker');
+const sharedHost = process.argv.includes('--shared-host');
+const nginxBinary = process.env.ATTUNER_QUALIFICATION_NGINX ?? 'nginx';
 if (docker && process.platform !== 'linux')
   throw new Error('Container qualification uses a Linux hosted runner only.');
 const tools = JSON.parse(await readFile('infrastructure/staging/toolchain.json', 'utf8')) as {
@@ -39,6 +41,7 @@ async function freePort() {
 }
 const port = await freePort(),
   webPort = await freePort(),
+  sentinelPort = await freePort(),
   origin = `https://127.0.0.1:${port}`;
 const h = await secureHarness({
   blobDirectory: join(root, 'blobs'),
@@ -119,7 +122,15 @@ const configuration: ProxyConfig = {
   pid: join(root, 'nginx.pid'),
   cache: join(root, 'cache'),
   accessLog: join(root, 'proxy.log'),
+  hosted: sharedHost,
 };
+async function checkOtherSite() {
+  if (sharedHost) {
+    const response = await fetch(`http://127.0.0.1:${sentinelPort}/unrelated`);
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'unrelated synthetic site unchanged');
+  }
+}
 function startProxy(validate = false) {
   const name = 'attuner-stage-test-' + randomUUID();
   const args = [
@@ -156,7 +167,7 @@ function startProxy(validate = false) {
         ],
         { stdio: ['ignore', 'pipe', 'pipe'] },
       )
-    : spawn('nginx', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+    : spawn(nginxBinary, args, { stdio: ['ignore', 'pipe', 'pipe'] });
   track(child);
   if (docker) containers.set(child, name);
   child.stdout!.on('data', (bytes: Buffer) => {
@@ -240,7 +251,12 @@ try {
   await copyFile(tls.keyPath, configuration.edgeKey);
   await copyFile(tls.certPath, configuration.edgeCertificate);
   await writeFile(configuration.apiCA, h.ca);
-  await writeFile(join(root, 'nginx.conf'), renderProxy(configuration), { mode: 0o600 });
+  const include = renderProxy(configuration);
+  await writeFile(join(root, 'attuner-staging.conf'), include, { mode: 0o600 });
+  const master = sharedHost
+    ? `# Synthetic existing host; never written outside this temporary root.\nworker_processes 1;\npid "${join(root, 'nginx.pid')}";\nerror_log /dev/null;\nevents { worker_connections 256; }\nhttp {\naccess_log off;\n${['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'].map((name) => `${name}_temp_path "${join(root, 'cache', name)}";`).join('\n')}\nserver { listen 127.0.0.1:${sentinelPort}; server_name unrelated.example.invalid; location / { return 200 'unrelated synthetic site unchanged'; } }\ninclude "${join(root, 'attuner-staging.conf')}";\n}\n`
+    : include;
+  await writeFile(join(root, 'nginx.conf'), master, { mode: 0o600 });
   if (docker)
     execFileSync('docker', ['pull', tools.validationImage], { stdio: 'pipe', timeout: 120000 });
   const validation = startProxy(true),
@@ -269,6 +285,7 @@ try {
   proxy = startProxy();
   await providePassphrase(proxy);
   await waitProxy();
+  await checkOtherSite();
   const password = randomBytes(24).toString('base64url');
   await h.security.bootstrap('owner', password);
   const login = await send(
@@ -356,6 +373,7 @@ try {
     }
   }
   assert.equal(rejected?.status, 502, 'Unknown API CA must fail closed.');
+  await checkOtherSite();
   await stop(proxy);
   proxy = undefined;
   await writeFile(configuration.apiCA, h.ca);
@@ -381,7 +399,7 @@ try {
     await page.getByText('A few changes need your attention', { exact: true }).waitFor();
     await mkdir('artifacts/phase-4', { recursive: true });
     await page.screenshot({
-      path: `artifacts/phase-4/staging-web-${process.platform}-1440.png`,
+      path: `artifacts/phase-4/staging-${sharedHost ? 'jammy-shared-' : 'web-'}${process.platform}-1440.png`,
       fullPage: true,
     });
   } finally {
@@ -426,6 +444,9 @@ try {
   assert.equal(JSON.parse(healthyMonitor.stdout).ready, true);
   await h.quiesceStorage();
   assert.equal((await send('GET', '/api/v1/health/ready')).status, 502);
+  await checkOtherSite();
+  assert.equal(await readFile(join(root, 'nginx.conf'), 'utf8'), master);
+  assert.equal(await readFile(join(root, 'attuner-staging.conf'), 'utf8'), include);
   const failedMonitor = await runMonitor();
   assert.equal(failedMonitor.status, 1);
   assert.equal(JSON.parse(failedMonitor.stdout).ready, false);
@@ -442,16 +463,18 @@ try {
     assert(!('uri' in event || 'headers' in event || 'remoteAddress' in event));
   }
   await writeFile(
-    `artifacts/phase-4/staging-qualification-${process.platform}.json`,
+    `artifacts/phase-4/staging-qualification-${sharedHost ? 'jammy-shared-' : ''}${process.platform}.json`,
     JSON.stringify(
       {
         schemaVersion: 1,
         environment: docker
           ? 'Linux container on hosted CI; loopback only'
-          : 'macOS local Nginx; loopback only',
+          : `${process.platform} local Nginx; loopback only`,
         nginx: docker
           ? tools.validationImage
-          : spawnSync('nginx', ['-v'], { encoding: 'utf8' }).stderr.trim(),
+          : spawnSync(nginxBinary, ['-v'], { encoding: 'utf8' }).stderr.trim(),
+        sharedHostInclude: sharedHost,
+        unrelatedSyntheticSitePreserved: sharedHost,
         checks: [
           'configuration syntax',
           'two verified TLS hops',

@@ -2,9 +2,13 @@
   "node": "24.22.2",
   "pnpm": "10.33.4",
   "rust": "1.99.1",
-  "systemdMinimum": 255,
+  "target": "Ubuntu 22.04 LTS x86_64; existing Nginx",
+  "systemdMinimum": 249,
+  "credentialDelivery": "age encrypted-at-rest + explicit root tmpfs unlock + LoadCredential",
   "credentialAclReader": "/usr/bin/getfacl",
-  "ubuntu2404AclPackage": "2.3.2-1build1.1",
+  "ubuntu2204AclPackage": "2.3.1-1",
+  "agePackage": "Jammy security-supported 1.0.0-1ubuntu0.1 or newer distribution security revision",
+  "hostNginx": "Existing supported build; Jammy security-maintained 1.18.0 baseline. No replacement or upgrade performed.",
   "nginx": "1.30.6",
   "validationImage": "nginx:1.30.6-alpine@sha256:0e52bd054126cdc040b1276c0af347aeb02a41b9cfe305d6094767ac30e97949"
 }

@@ -61,6 +61,7 @@ type Options = {
   signal?: AbortSignal;
   checkpoint?: Checkpoint;
   diskBudgetBytes?: number;
+  diskReserveBytes?: number;
 };
 function control(options: Options): Checkpoint {
   return async (point) => {
@@ -119,6 +120,9 @@ async function writeJSON(path: string, value: unknown) {
   await syncDirectory(dirname(path));
 }
 async function budget(directory: string, required: number, options: Options) {
+  const reserve = options.diskReserveBytes ?? 16 * 1024 ** 2;
+  if (!Number.isSafeInteger(reserve) || reserve < 16 * 1024 ** 2 || reserve > 1024 ** 4)
+    throw new Error('MAINTENANCE_INVALID_RESERVE');
   const space = await statfs(directory, { bigint: true });
   const available =
     options.diskBudgetBytes === undefined
@@ -127,7 +131,7 @@ async function budget(directory: string, required: number, options: Options) {
   if (
     !Number.isSafeInteger(required) ||
     required > totalLimit ||
-    available < BigInt(required) + 16n * 1024n ** 2n
+    available < BigInt(required) + BigInt(reserve)
   )
     throw new Error('MAINTENANCE_INSUFFICIENT_SPACE');
 }

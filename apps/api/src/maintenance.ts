@@ -1,6 +1,7 @@
 import { readSync, closeSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createBackup, restoreBackup } from './maintenance/recovery.ts';
+import { readConfig } from './config.ts';
 
 const args = process.argv.slice(2);
 const keyFlag = args.indexOf('--key-fd');
@@ -32,7 +33,11 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => controller.abort(new Error('MAINTENANCE_CANCELLED')));
 try {
   const [command, first, second] = args.slice(0, keyFlag);
-  const options = { key: key.subarray(0, 32), signal: controller.signal };
+  const options = {
+    key: key.subarray(0, 32),
+    signal: controller.signal,
+    diskReserveBytes: readConfig().diskReserveBytes,
+  };
   if (command === 'backup' && first && !second) {
     if (!process.env.ATTUNER_DATA_DIR)
       throw new Error('Set ATTUNER_DATA_DIR explicitly to the private service data directory.');

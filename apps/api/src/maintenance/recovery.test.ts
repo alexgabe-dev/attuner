@@ -202,6 +202,19 @@ describe.skipIf(process.platform === 'win32')('encrypted server disaster recover
     await expect(createBackup(source, noSpace, { key, diskBudgetBytes: 1 })).rejects.toThrow(
       'MAINTENANCE_INSUFFICIENT_SPACE',
     );
+    await expect(
+      createBackup(source, path('shared-disk-reserve'), {
+        key,
+        diskBudgetBytes: 1024 ** 3,
+        diskReserveBytes: 10 * 1024 ** 3,
+      }),
+    ).rejects.toThrow('MAINTENANCE_INSUFFICIENT_SPACE');
+    await expect(
+      createBackup(source, path('invalid-reserve'), {
+        key,
+        diskReserveBytes: Number.NaN,
+      }),
+    ).rejects.toThrow('MAINTENANCE_INVALID_RESERVE');
     for (const point of [
       'backup-database-captured',
       'backup-object',
