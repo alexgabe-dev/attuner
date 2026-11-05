@@ -41,7 +41,6 @@ async function freePort() {
 }
 const port = await freePort(),
   webPort = await freePort(),
-  sentinelPort = await freePort(),
   origin = `https://127.0.0.1:${port}`;
 const h = await secureHarness({
   blobDirectory: join(root, 'blobs'),
@@ -124,11 +123,40 @@ const configuration: ProxyConfig = {
   accessLog: join(root, 'proxy.log'),
   hosted: sharedHost,
 };
+// Existing host's HTTP context decrypts its synthetic key once; the Attuner
+// include inherits that in-memory password without a second FIFO reader.
+if (sharedHost) delete configuration.passwordFile;
 async function checkOtherSite() {
   if (sharedHost) {
-    const response = await fetch(`http://127.0.0.1:${sentinelPort}/unrelated`);
-    assert.equal(response.status, 200);
-    assert.equal(await response.text(), 'unrelated synthetic site unchanged');
+    for (const host of ['localhost', 'unknown.example.invalid']) {
+      await new Promise<void>((resolve, reject) => {
+        const call = request(
+          origin + '/unrelated',
+          { ca: tls.ca, servername: 'localhost', headers: { host } },
+          (response) => {
+            let content = '';
+            response.on('data', (bytes: Buffer) => {
+              content += bytes.toString();
+              if (content.length > 128)
+                response.destroy(new Error('Other-site fixture size limit.'));
+            });
+            response.on('error', reject);
+            response.on('end', () => {
+              try {
+                assert.equal(response.statusCode, 200);
+                assert.equal(content, 'unrelated synthetic site unchanged');
+                resolve();
+              } catch (error) {
+                reject(error);
+              }
+            });
+          },
+        );
+        call.setTimeout(5000, () => call.destroy(new Error('Other-site fixture timeout.')));
+        call.on('error', reject);
+        call.end();
+      });
+    }
   }
 }
 function startProxy(validate = false) {
@@ -254,7 +282,7 @@ try {
   const include = renderProxy(configuration);
   await writeFile(join(root, 'attuner-staging.conf'), include, { mode: 0o600 });
   const master = sharedHost
-    ? `# Synthetic existing host; never written outside this temporary root.\nworker_processes 1;\npid "${join(root, 'nginx.pid')}";\nerror_log /dev/null;\nevents { worker_connections 256; }\nhttp {\naccess_log off;\n${['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'].map((name) => `${name}_temp_path "${join(root, 'cache', name)}";`).join('\n')}\nserver { listen 127.0.0.1:${sentinelPort}; server_name unrelated.example.invalid; location / { return 200 'unrelated synthetic site unchanged'; } }\ninclude "${join(root, 'attuner-staging.conf')}";\n}\n`
+    ? `# Synthetic existing host; never written outside this temporary root.\nworker_processes 1;\npid "${join(root, 'nginx.pid')}";\nerror_log /dev/null;\nevents { worker_connections 256; }\nhttp {\naccess_log off;\n${['client_body', 'proxy', 'fastcgi', 'uwsgi', 'scgi'].map((name) => `${name}_temp_path "${join(root, 'cache', name)}";`).join('\n')}\nssl_password_file "${fifo}";\nssl_certificate "${configuration.edgeCertificate}";\nssl_certificate_key "${configuration.edgeKey}";\nssl_protocols TLSv1.2 TLSv1.3;\nserver { listen 127.0.0.1:${port} ssl default_server; server_name localhost; location / { return 200 'unrelated synthetic site unchanged'; } }\ninclude "${join(root, 'attuner-staging.conf')}";\n}\n`
     : include;
   await writeFile(join(root, 'nginx.conf'), master, { mode: 0o600 });
   if (docker)
@@ -475,6 +503,7 @@ try {
           : spawnSync(nginxBinary, ['-v'], { encoding: 'utf8' }).stderr.trim(),
         sharedHostInclude: sharedHost,
         unrelatedSyntheticSitePreserved: sharedHost,
+        sharedHttpsListenerAndDefaultPreserved: sharedHost,
         checks: [
           'configuration syntax',
           'two verified TLS hops',

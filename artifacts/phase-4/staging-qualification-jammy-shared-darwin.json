@@ -4,6 +4,7 @@
   "nginx": "nginx version: nginx/1.31.7",
   "sharedHostInclude": true,
   "unrelatedSyntheticSitePreserved": true,
+  "sharedHttpsListenerAndDefaultPreserved": true,
   "checks": [
     "configuration syntax",
     "two verified TLS hops",
