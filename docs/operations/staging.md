@@ -97,6 +97,27 @@ sudo install -d -o root -g adm -m 0750 /var/log/attuner-staging
 
 Provision the private pinned Node directory `/opt/attuner/toolchains/node-v24.22.2-linux-x64` from the official release, verifying signed SHASUMS with the independently verified Node release keys. Do not pipe downloads into a root shell or replace the system Node. Follow [Node's release verification procedure](https://github.com/nodejs/node#verifying-binaries); no key fingerprint is invented by this bundle. Confirm the installed private binary prints `v24.22.2`.
 
+Exact commands from a new operator-owned download folder are below. `/approved/operator/node-release-keys.gpg` is a prerequisite public keyring whose fingerprints the operator has independently verified against Node's release-key policy; replace that path with the approved keyring. Do not auto-trust keys downloaded beside the archive. If `curl`, `gpgv`, `tar` or `xz` is unavailable, add the missing prerequisite to the host-change approval before proceeding.
+
+```sh
+set -e
+mkdir -m 0700 attuner-node-download
+cd attuner-node-download
+curl --proto '=https' --tlsv1.2 --fail --show-error --location --output node-v24.22.2-linux-x64.tar.xz https://nodejs.org/dist/v24.22.2/node-v24.22.2-linux-x64.tar.xz
+curl --proto '=https' --tlsv1.2 --fail --show-error --location --output SHASUMS256.txt https://nodejs.org/dist/v24.22.2/SHASUMS256.txt
+curl --proto '=https' --tlsv1.2 --fail --show-error --location --output SHASUMS256.txt.sig https://nodejs.org/dist/v24.22.2/SHASUMS256.txt.sig
+gpgv --keyring /approved/operator/node-release-keys.gpg SHASUMS256.txt.sig SHASUMS256.txt
+grep -E '  node-v24\.22\.2-linux-x64\.tar\.xz$' SHASUMS256.txt > NODE-SHA256
+test "$(wc -l < NODE-SHA256)" -eq 1
+sha256sum -c NODE-SHA256
+sudo mkdir -m 0750 /opt/attuner/toolchains/node-v24.22.2-linux-x64
+sudo chown root:attuner-code /opt/attuner/toolchains/node-v24.22.2-linux-x64
+sudo tar --no-same-owner --no-same-permissions --strip-components=1 -xJf node-v24.22.2-linux-x64.tar.xz -C /opt/attuner/toolchains/node-v24.22.2-linux-x64
+sudo -u attuner-api /opt/attuner/toolchains/node-v24.22.2-linux-x64/bin/node --version
+```
+
+Return to the extracted candidate's `.runtime` folder for the next block. A failed signature, missing/duplicate hash, pre-existing runtime directory or wrong version is a stop condition; do not overwrite or substitute a system runtime.
+
 Download and extract the reviewed artifact to a new operator-owned directory. The CI ZIP preserves `.runtime/` and `artifacts/` subdirectories; locate the three `attuner-staging-jammy-runtime.*` files under `.runtime`, and run the following from that folder (the rendered configuration is its `jammy-bundle` subfolder). From there:
 
 ```sh

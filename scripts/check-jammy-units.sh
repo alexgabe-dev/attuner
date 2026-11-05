@@ -30,7 +30,7 @@ fi
 cp "$task_probe/attuner-staging-api.service" "$task_probe/negative/attuner-staging-api.service"
 printf '\n[Service]\nAttunerInvalidSetting=yes\n' >> "$task_probe/negative/attuner-staging-api.service"
 systemd-analyze verify "$task_probe/negative/attuner-staging-api.service" 2> .runtime/jammy-unit-negative-control.log || :
-if ! rg -q "Unknown key name 'AttunerInvalidSetting'" .runtime/jammy-unit-negative-control.log; then
+if ! grep -Fq "Unknown key name 'AttunerInvalidSetting'" .runtime/jammy-unit-negative-control.log; then
   cat .runtime/jammy-unit-negative-control.log
   exit 1
 fi
