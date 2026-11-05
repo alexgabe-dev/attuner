@@ -67,21 +67,7 @@ jobs:
       - run: pnpm exec tsx scripts/check-staging-runtime.ts
       - run: pnpm exec tsx scripts/render-staging.ts https://attuner-staging.example.com .runtime/jammy-bundle
       - name: Validate actual systemd 249 unit syntax without activation
-        run: |
-          systemd --version
-          # No approved /opt installation exists on CI. Change only ExecStart
-          # in a private probe copy; verify all sandbox/resource directives on 249.
-          cp -r .runtime/jammy-bundle .runtime/jammy-unit-probe
-          sed -i 's|^ExecStart=.*|ExecStart=/bin/true|' .runtime/jammy-unit-probe/*.service
-          chmod 0644 .runtime/jammy-unit-probe/*.service .runtime/jammy-unit-probe/*.timer .runtime/jammy-unit-probe/*.slice
-          if ! systemd-analyze verify .runtime/jammy-unit-probe/*.service .runtime/jammy-unit-probe/*.timer .runtime/jammy-unit-probe/*.slice 2> .runtime/jammy-unit-verification.log; then
-            cat .runtime/jammy-unit-verification.log
-            exit 1
-          fi
-          if test -s .runtime/jammy-unit-verification.log; then
-            cat .runtime/jammy-unit-verification.log
-            exit 1
-          fi
+        run: sh scripts/check-jammy-units.sh
       - run: pnpm exec playwright install chromium
       - name: Actual Jammy Nginx shared-host rehearsal
         env:
@@ -96,6 +82,7 @@ jobs:
             .runtime/attuner-staging-jammy-runtime.*
             .runtime/jammy-bundle/
             .runtime/jammy-unit-verification.log
+            .runtime/jammy-unit-negative-control.log
             .runtime/jammy-tools/*-version.txt
             .runtime/jammy-systemd-credential-qualification.json
             artifacts/phase-4/staging-qualification-jammy-shared-linux.json
