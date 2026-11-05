@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "4881f190db6ce075cf32629a48094642dbfa7681",
+  "workflowRun": 41948882167,
+  "artifactId": 13379383173,
+  "artifactUrl": "https://github.com/alexgabe-dev/attuner/actions/runs/41948882167/artifacts/13379383173",
+  "outerZipSha256": "0b6c7122406d89a112d8e1c1d5bf9e8ff757f5588f069d25e16974eac3a2a700",
+  "outerZipDigestVerified": true,
+  "runtimeArchiveSha256": "511c6a0ecb0284799f39cb471a3c105a74264e01db7841de729a0cd478847ecd",
+  "runtimeReceiptAndSourceVerified": true,
+  "configurationFilesVerified": 20,
+  "configurationSourceClean": true,
+  "runtimeArchiveEntries": 30726,
+  "escapingLexicalLinkTargetsOrSpecialEntriesDetected": false,
+  "protocolNamespacePresent": true,
+  "positiveUnitDiagnosticsBytes": 0,
+  "invalidUnitDirectiveDetected": true,
+  "nativePackages": {
+    "age": "1.0.0-1ubuntu0.1",
+    "nginx": "1.18.0-6ubuntu14.22"
+  },
+  "downloadedLinuxBinariesExecutedOnMac": false,
+  "vpsAccessed": false,
+  "deployed": false
+}

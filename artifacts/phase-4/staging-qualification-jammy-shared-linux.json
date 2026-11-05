@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "environment": "linux local Nginx; loopback only",
+  "nginx": "nginx version: nginx/1.18.0 (Ubuntu)",
+  "sharedHostInclude": true,
+  "unrelatedSyntheticSitePreserved": true,
+  "sharedHttpsListenerAndDefaultPreserved": true,
+  "checks": [
+    "configuration syntax",
+    "two verified TLS hops",
+    "secure-cookie login",
+    "scoped three-device enrollment",
+    "two immutable revisions",
+    "DPoP through proxy",
+    "unknown-upstream-CA rejection",
+    "real Next.js dashboard",
+    "credential-free proxy logs",
+    "CSRF origin rejection",
+    "oversized request rejection",
+    "login rate limit",
+    "healthy/outage monitor"
+  ],
+  "deployed": false,
+  "systemdServicesActivated": false,
+  "systemdEncryptedCredentialProvisioningQualified": false,
+  "realInstallationsAccessed": false,
+  "signedDistribution": false
+}

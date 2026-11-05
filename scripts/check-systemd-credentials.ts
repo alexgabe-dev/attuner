@@ -122,7 +122,7 @@ if (process.argv[2] === 'probe') {
       ) + '\n',
     );
     console.log(
-      'Actual systemd root-owned service-user ACL loading passed; no secrets, installation or deployment.',
+      `Actual systemd ${privateOwner ? 'private service-owned credential' : 'root-owned service-user ACL'} loading passed; no secrets, installation or deployment.`,
     );
   } finally {
     // UUID-scoped unit only; --collect normally already unloaded it. Never stop

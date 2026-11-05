@@ -2,6 +2,8 @@ name: Attuner verification
 on: [push, pull_request]
 permissions:
   contents: read
+env:
+  NEXT_TELEMETRY_DISABLED: '1'
 jobs:
   web-and-api:
     runs-on: ubuntu-24.04
